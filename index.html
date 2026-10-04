@@ -85,9 +85,18 @@ summary{cursor:pointer;font-weight:900}
 .group{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:12px}
 .group-head{display:flex;gap:8px;align-items:center;margin-bottom:8px}
 .group-head input{font-weight:900}
-.opt{display:grid;grid-template-columns:1fr 70px 70px auto;gap:6px;align-items:center;margin-bottom:6px}
-.opt-h{display:grid;grid-template-columns:1fr 70px 70px auto;gap:6px;font-size:.75rem;color:var(--muted);margin-bottom:4px}
-.opt-h span:last-child{width:34px}
+.opt{display:grid;grid-template-columns:1fr 62px 62px auto;gap:6px;align-items:center;margin-bottom:6px}
+.opt-h{display:grid;grid-template-columns:1fr 62px 62px auto;gap:6px;font-size:.75rem;color:var(--muted);margin-bottom:4px}
+.opt-h span:last-child{width:78px}
+.ob{display:flex;gap:4px}
+button.x.has{border-color:var(--sakura);background:var(--bg)}
+#design{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:18px;padding:18px;width:calc(100% - 32px);max-width:470px}
+#design::backdrop{background:rgba(10,5,25,.6)}
+#design h2{margin:0 0 4px}
+#design select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;width:100%;min-width:0}
+#design .row label{min-width:120px}
+#design input[type=color]{padding:2px;height:40px}
+#dzPrev{display:grid;place-items:center;background:var(--bg);border-radius:14px;margin:8px 0 12px;padding:6px}
 .pct{font-size:.78rem;color:var(--muted)}
 .legend{font-size:.85rem;color:var(--muted);margin-top:10px}
 .legend span{font-weight:900}
@@ -274,7 +283,7 @@ body.guest #editor{display:none}
 
       <details id="editor">
         <summary>Modifier les groupes et les chances</summary>
-        <p class="sub" style="margin:8px 0 0">« Chance » = poids sur la roue (plus c'est grand, plus ça sort). « Points » = ce que ça rapporte. Modifier les groupes remet la partie à zéro.</p>
+        <p class="sub" style="margin:8px 0 0">« Chance » = poids sur la roue (plus c'est grand, plus ça sort). « Points » = ce que ça rapporte. Modifier les groupes remet la partie à zéro. Le bouton 🎨 ouvre l'atelier d'une option : son apparence sur le perso, le nom de son attaque, ses effets en combat.</p>
         <div id="groups"></div>
         <div class="actions" style="justify-content:flex-start;margin-top:12px">
           <button class="small" id="addGroup">Ajouter un groupe</button>
@@ -331,6 +340,26 @@ body.guest #editor{display:none}
     <div id="guideList"></div>
   </section>
 </main>
+
+<dialog id="design" aria-labelledby="dzTitle">
+  <h2 id="dzTitle">Design</h2>
+  <p class="sub" style="margin:0">L'aperçu montre un perso de base qui possède cette option.</p>
+  <div id="dzPrev"></div>
+  <div class="row"><label for="dzIcon">Symbole</label><input type="text" id="dzIcon" maxlength="4" placeholder="un emoji, par ex. 🐉"></div>
+  <div class="row"><label for="dzCol">Couleur</label><input type="color" id="dzCol"></div>
+  <div class="row"><label for="dzStyle">Effet visuel</label><select id="dzStyle">
+    <option value="none">Aucun</option><option value="aura">Aura</option><option value="flammes">Flammes</option><option value="eclairs">Éclairs</option>
+    <option value="orbite">Orbes en orbite</option><option value="etoiles">Étoiles</option><option value="ailes">Ailes</option><option value="anneaux">Anneaux au sol</option></select></div>
+  <div class="row"><label for="dzName" id="dzNameLab">Nom de l'attaque</label><input type="text" id="dzName" maxlength="30" placeholder="par ex. Souffle du dragon"></div>
+  <div class="row" id="dzUltRow"><label for="dzUlt">Effet de l'ultime</label><select id="dzUlt"></select></div>
+  <div class="row"><label for="dzStatus">État infligé</label><select id="dzStatus"></select></div>
+  <div class="row"><label for="dzBeats">Fort contre</label><select id="dzBeats"></select></div>
+  <div class="actions" style="justify-content:flex-start;margin-top:14px">
+    <button id="dzSave">Enregistrer</button>
+    <button class="ghost" id="dzClear">Effacer le design</button>
+    <button class="ghost" id="dzClose">Annuler</button>
+  </div>
+</dialog>
 
 <script>
 const DEFAULT_GROUPS = [
@@ -538,6 +567,65 @@ function resetGame(){
 $("reset").addEventListener("click",resetGame);
 $("nb").addEventListener("change",buildPlayers);
 
+/* ---------- Atelier : design d'une option ---------- */
+// option.d = {icon, col, style, name, ult, status, beats} ; enregistré avec les groupes, donc partagé en ligne.
+function designOf(label){ for(const g of groups) for(const o of g.options) if(o.d&&o.label===label) return o.d; return null; }
+function safeCol(c){return /^#[0-9a-f]{6}$/i.test(c||"")?c:"#FFD84A";}
+function customFX(p){
+  let back="", front="", k=0; const slots=[[102,26],[18,26],[104,122],[16,122]];
+  groups.forEach((g,j)=>{
+    const r=p.res[j]; if(!r) return;
+    const o=g.options.find(o=>o.label===r.label), d=o&&o.d; if(!d) return;
+    const c=safeCol(d.col);
+    switch(d.style){
+      case "aura": back+=`<circle cx="60" cy="72" r="56" fill="${c}" opacity=".2"/><circle cx="60" cy="72" r="50" fill="none" stroke="${c}" stroke-width="2.5" opacity=".8"/>`; break;
+      case "flammes": back+=`<path d="M60 130 Q10 112 20 58 Q30 82 38 72 Q32 38 52 22 Q50 50 60 44 Q70 50 68 22 Q88 38 82 72 Q90 82 100 58 Q110 112 60 130Z" fill="${c}" opacity=".45"/>`; break;
+      case "eclairs": front+=`<path d="M14 18 l9 16 -8 2 10 18 M106 18 l-9 16 8 2 -10 18 M10 84 l7 10 -6 2 7 12 M110 84 l-7 10 6 2 -7 12" stroke="${c}" stroke-width="2.5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>`; break;
+      case "orbite": back+=`<ellipse cx="60" cy="76" rx="56" ry="18" fill="none" stroke="${c}" stroke-width="1.5" opacity=".7"/>`;
+        front+=`<circle cx="8" cy="72" r="6" fill="${c}" stroke="#fff" stroke-width="1.2"/><circle cx="112" cy="80" r="6" fill="${c}" stroke="#fff" stroke-width="1.2"/><circle cx="74" cy="93" r="5" fill="${c}" stroke="#fff" stroke-width="1.2"/>`; break;
+      case "etoiles": front+=`<path d="M18 40 l2.4 6 6 0 -4.8 3.6 2.4 6 -6 -3.6 -6 3.6 2.4 -6 -4.8 -3.6 6 0z M102 60 l2 5 5 0 -4 3 2 5 -5 -3 -5 3 2 -5 -4 -3 5 0z M98 10 l1.6 4 4 0 -3.2 2.6 1.4 4 -3.8 -2.4 -3.8 2.4 1.4 -4 -3.2 -2.6 4 0z M22 98 l1.6 4 4 0 -3.2 2.6 1.4 4 -3.8 -2.4 -3.8 2.4 1.4 -4 -3.2 -2.6 4 0z" fill="${c}" stroke="#fff" stroke-width=".6"/>`; break;
+      case "ailes": back+=`<path d="M42 82 Q0 62 4 26 Q18 52 20 46 Q25 66 30 60 Q32 74 42 74Z" fill="${c}" stroke="#fff" stroke-width="1"/><path d="M78 82 Q120 62 116 26 Q102 52 100 46 Q95 66 90 60 Q88 74 78 74Z" fill="${c}" stroke="#fff" stroke-width="1"/>`; break;
+      case "anneaux": back+=`<ellipse cx="60" cy="130" rx="50" ry="8" fill="none" stroke="${c}" stroke-width="2.5"/><ellipse cx="60" cy="130" rx="36" ry="5.5" fill="${c}" opacity=".35"/>`; break;
+    }
+    if(d.icon){ const sl=slots[k++%4]; front+=`<text x="${sl[0]}" y="${sl[1]}" font-size="18" text-anchor="middle">${esc(d.icon)}</text>`; }
+  });
+  return [back,front];
+}
+let dz=null;
+function openDesign(gi,oi){
+  const g=groups[gi], o=g.options[oi], isPow=g.name.toLowerCase()==="pouvoir spécial";
+  dz={gi,oi,d:Object.assign({icon:"",col:"#FFD84A",style:"aura",name:"",ult:(ULT[o.label]||["","big"])[1],status:"",beats:""},o.d||{})};
+  $("dzTitle").textContent=`Design : ${o.label}`;
+  $("dzNameLab").textContent=isPow?"Nom de l'ultime":"Nom de l'attaque";
+  $("dzUltRow").hidden=!isPow;
+  $("dzUlt").innerHTML=Object.entries(ULT_TXT).map(([k,t])=>`<option value="${k}">${esc(t[0].toUpperCase()+t.slice(1))}</option>`).join("");
+  $("dzStatus").innerHTML=`<option value="">Aucun</option>`+["burn","poison","bleed","freeze","stun","blind","curse"].map(k=>`<option value="${k}">${STATUS[k].i} ${STATUS[k].n}</option>`).join("");
+  $("dzBeats").innerHTML=`<option value="">Rien de particulier</option>`+groups.map(x=>`<optgroup label="${esc(x.name)}">${x.options.filter(y=>y.label&&y!==o).map(y=>`<option value="${esc(y.label)}">${esc(y.label)}</option>`).join("")}</optgroup>`).join("");
+  $("dzIcon").value=dz.d.icon; $("dzCol").value=safeCol(dz.d.col); $("dzStyle").value=dz.d.style; $("dzName").value=dz.d.name;
+  $("dzUlt").value=dz.d.ult; $("dzStatus").value=dz.d.status; $("dzBeats").value=dz.d.beats;
+  dzPreview(); $("design").showModal();
+}
+function dzRead(){
+  return {icon:$("dzIcon").value.trim(),col:$("dzCol").value,style:$("dzStyle").value,name:$("dzName").value.trim().slice(0,30),
+    ult:$("dzUlt").value||"big",status:$("dzStatus").value,beats:$("dzBeats").value};
+}
+function dzPreview(){ // perso de base (première option de chaque groupe) + l'option en cours
+  const o=groups[dz.gi].options[dz.oi], old=o.d, res={};
+  o.d=dzRead();
+  groups.forEach((g,j)=>{const x=j===dz.gi?o:opts(g)[0]; if(x) res[j]={label:x.label,pts:0,col:"#888"};});
+  $("dzPrev").innerHTML=avatarSVG({res},150);
+  if(old) o.d=old; else delete o.d;
+}
+function dzApply(d){
+  const o=groups[dz.gi].options[dz.oi];
+  if(d) o.d=d; else delete o.d;
+  $("design").close(); save(); renderEditor(); render(); renderGuide(); sync();
+}
+$("design").addEventListener("input",dzPreview);
+$("dzSave").addEventListener("click",()=>dzApply(dzRead()));
+$("dzClear").addEventListener("click",()=>dzApply(null));
+$("dzClose").addEventListener("click",()=>$("design").close());
+
 /* ---------- Éditeur de groupes ---------- */
 function renderEditor(){
   const box=$("groups");box.innerHTML="";
@@ -550,7 +638,7 @@ function renderEditor(){
         <div><input type="text" value="${esc(o.label)}" data-g="${gi}" data-o="${oi}" data-f="label" aria-label="Nom"><div class="pct">${t&&o.weight>0?(o.weight/t*100).toFixed(1)+" %":"0 %"}</div></div>
         <input type="number" min="0" value="${o.weight}" data-g="${gi}" data-o="${oi}" data-f="weight" aria-label="Chance">
         <input type="number" value="${o.pts}" data-g="${gi}" data-o="${oi}" data-f="pts" aria-label="Points">
-        <button class="x" data-delo="${gi}:${oi}" aria-label="Supprimer l'option">✕</button></div>`).join("")}
+        <span class="ob"><button class="x${o.d?" has":""}" data-design="${gi}:${oi}" aria-label="Design de l'option" title="Design">🎨</button><button class="x" data-delo="${gi}:${oi}" aria-label="Supprimer l'option">✕</button></span></div>`).join("")}
       <button class="ghost small" data-addo="${gi}">Ajouter une option</button>`;
     box.appendChild(d);
   });
@@ -565,6 +653,7 @@ $("groups").addEventListener("change",e=>{
 });
 $("groups").addEventListener("click",e=>{
   const t=e.target.closest("button");if(!t)return;
+  if(t.dataset.design){const [g,o]=t.dataset.design.split(":").map(Number);openDesign(g,o);return;}
   if(t.dataset.delg!==undefined){groups.splice(+t.dataset.delg,1);}
   else if(t.dataset.delo){const [g,o]=t.dataset.delo.split(":").map(Number);groups[g].options.splice(o,1);}
   else if(t.dataset.addo!==undefined){groups[+t.dataset.addo].options.push({label:"Nouvelle option",weight:10,pts:10});}
@@ -674,6 +763,7 @@ function avatarSVG(p,size){
   const col=ELCOL[el]||"#B57BFF";
   const [pBack,pFront,po]=powerFX(power,col);
   const [mBack,mFront]=magicFX(magic,col);
+  const [cBack,cFront]=customFX(p);
   let eye=po.eyeCol||EYE[R]||"#2A1B3D";
   if(magic==="Magie du sang") eye="#C8102E";
   // carrure selon la force
@@ -742,7 +832,7 @@ function avatarSVG(p,size){
   const shadow = R==="Homme-ombre" ? `<circle cx="60" cy="72" r="46" fill="#120D1C" opacity=".35"/>` : "";
   const defs=`<defs><radialGradient id="${id}"><stop offset="0" stop-color="${hair}" stop-opacity=".45"/><stop offset="1" stop-color="${hair}" stop-opacity="0"/></radialGradient>${po.eye?`<linearGradient id="RAIN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF3FA0"/><stop offset=".5" stop-color="#FFE03F"/><stop offset="1" stop-color="#3FD0FF"/></linearGradient>`:""}</defs>`;
   const tint = po.tint ? ` style="filter:saturate(.35) hue-rotate(160deg)"` : "";
-  return `<svg viewBox="0 0 120 140" width="${size}" height="${H}" role="img" aria-label="${esc([R,el,force,magic,power,weapon].filter(Boolean).join(", "))}">${defs}<circle cx="60" cy="70" r="60" fill="url(#${id})"/>${shadow}${fBack}${mBack}${pBack}${clones}<g transform="${tr}" ${po.opacity?`opacity="${po.opacity}"`:""}${tint}>${char}</g>${mFront}${pFront}</svg>`;
+  return `<svg viewBox="0 0 120 140" width="${size}" height="${H}" role="img" aria-label="${esc([R,el,force,magic,power,weapon].filter(Boolean).join(", "))}">${defs}<circle cx="60" cy="70" r="60" fill="url(#${id})"/>${shadow}${fBack}${mBack}${pBack}${cBack}${clones}<g transform="${tr}" ${po.opacity?`opacity="${po.opacity}"`:""}${tint}>${char}</g>${mFront}${pFront}${cFront}</svg>`;
 }
 
 /* ---------- Arène ---------- */
@@ -820,7 +910,7 @@ const has=(f,arr)=>arr.some(x=>f.tags.has(x));
 function blocked(A,D,key){const r=SPECIAL_COUNTERS[key];return D.tags.has(key)&&!has(A,r.by);} // D garde son avantage contre A
 function counterMult(A,D,mode){
   let m=1; const notes=[];
-  for(const r of COUNTERS){
+  for(const r of allCounters()){
     if(r.x!=="*" && !A.tags.has(r.x)) continue;
     if(!D.tags.has(r.y)) continue;
     if(r.mode && r.mode!==mode) continue;
@@ -833,7 +923,7 @@ function matchups(F){
   const out=[];
   F.forEach(A=>F.forEach(D=>{
     if(A===D) return;
-    COUNTERS.forEach(r=>{
+    allCounters().forEach(r=>{
       if(r.x==="*"||!A.tags.has(r.x)||!D.tags.has(r.y)) return;
       out.push({good:r.m>1,txt:`${A.name} → ${D.name} : ${r.x} ${r.m>1?"contre":"est faible contre"} ${r.y} (×${r.m})`});
     });
@@ -911,9 +1001,18 @@ const BOSSES=[
  {name:"Archange déchu",build:["Dieu déchu","Surhumaine","Magie des étoiles","Lumière","Arrêter le temps","Arme divine"]},
  {name:"Kraken des abysses",build:["Homme-poisson","Monstrueuse","Gravité","Eau","Absorption d'énergie","Fouet"]}];
 const rnd=a=>a[Math.floor(Math.random()*a.length)];
-function pickTech(A){return rnd(TECH[A.weapon]||["Attaque"]);}
-function pickSpell(A){const l=(SPELL_EL[A.element]||[]).concat(SPELL_MG[A.magic]||[]);return l.length?rnd(l):"Décharge magique";}
-function ultOf(power){return ULT[power]||["Coup ultime","big"];}
+const customName=l=>{const d=designOf(l);return d&&d.name?[d.name]:[];};
+function pickTech(A){const c=customName(A.weapon);return c.length&&(!TECH[A.weapon]||Math.random()<.5)?c[0]:rnd(TECH[A.weapon]||["Attaque"]);}
+function pickSpell(A){const c=customName(A.element).concat(customName(A.magic));
+  if(c.length&&Math.random()<.5) return rnd(c);
+  const l=(SPELL_EL[A.element]||[]).concat(SPELL_MG[A.magic]||[]).concat(c);return l.length?rnd(l):"Décharge magique";}
+function ultOf(power){const b=ULT[power]||["Coup ultime","big"], d=designOf(power);
+  return d?[d.name||b[0], ULT_TXT[d.ult]?d.ult:b[1]]:b;}
+function allCounters(){ // counters de base + « Fort contre » défini dans l'atelier
+  const out=COUNTERS.slice();
+  groups.forEach(g=>g.options.forEach(o=>{ if(o.d&&o.d.beats&&o.label) out.push({x:o.label,y:o.d.beats,m:1.4,t:`${o.label} est fort contre ${o.d.beats}`}); }));
+  return out;
+}
 function ultLine(p){const pw=resBy(p,"pouvoir spécial");
   return pw?`<div class="cmini"><p><span class="lab l-sp">Ultime :</span> ${esc(ultOf(pw)[0])} (${ULT_TXT[ultOf(pw)[1]]})</p></div>`:"";}
 function makeBoss(H){
@@ -996,6 +1095,11 @@ function battle(players, withLog, mode){
     if(D.hp>0&&A!==D) for(const r of STATUS_SRC){
       if(!A.tags.has(r.tag)||r.m!==base||immune(D,r.s)||Math.random()>=r.p) continue;
       D.st[r.s]=STATUS[r.s].dur; stx=r.s; notes.push(`${STATUS[r.s].n} !`); break;
+    }
+    if(D.hp>0&&A!==D&&!stx) for(const l of A.tags){ // états définis dans l'atelier
+      const c=designOf(l), k=c&&c.status;
+      if(!k||!STATUS[k]||immune(D,k)||Math.random()>=.25) continue;
+      D.st[k]=STATUS[k].dur; stx=k; notes.push(`${STATUS[k].n} !`); break;
     }
     const counter = cm.m>1 ? "up" : cm.m<1 ? "down" : (cm.notes.length?"info":"");
     push({kind:"hit",a,d,mode,phys:!useMag,crit,adv,dmg,counter,notes,tech,stx,t:`${txt} : −${dmg} PV${notes.length?` [${notes.join(" · ")}]`:""}`,cls:o.special?"big":""});
@@ -1319,7 +1423,7 @@ function renderRules(){
 /* ---------- Guide des counters ---------- */
 function relations(label){
   const r={up:[],down:[],res:[],weak:[],sp:null,spBy:[]};
-  COUNTERS.forEach(c=>{
+  allCounters().forEach(c=>{
     const who = c.x==="*" ? (c.mode==="mag"?"la magie":"les coups physiques") : c.x;
     if(c.x===label){ (c.m>1?r.up:r.weak).push(`${c.y} (×${c.m})`); }
     if(c.y===label){ (c.m>1?r.down:r.res).push(`${who} (×${c.m})`); }
@@ -1381,7 +1485,7 @@ $("mapSvg").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.pr
 let cmSel=null;
 function counterEdges(){ // toujours du gagnant vers le perdant
   const E=[];
-  COUNTERS.forEach(r=>{
+  allCounters().forEach(r=>{
     if(r.x==="*"){
       E.push({w:r.y,l:r.mode==="mag"?"La magie":"Les coups physiques",why:`${r.t} (×${r.m})`});
       (r.pierce||[]).forEach(p=>E.push({w:p,l:r.y,why:`traverse ${r.y}`}));
