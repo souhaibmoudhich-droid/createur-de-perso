@@ -179,6 +179,23 @@ summary{cursor:pointer;font-weight:900}
 .cmini{margin-top:8px;font-size:.82rem;line-height:1.45}
 .cmini p{margin:2px 0}
 [hidden]{display:none!important}
+.rgbar{height:4px;border-radius:999px;background:rgba(0,0,0,.45);overflow:hidden;margin:0 10px 1px}
+.rgbar i{display:block;height:100%;width:0;background:#FFD84A;transition:width .3s}
+.rgbar i.full{background:#fff;box-shadow:0 0 6px #FFD84A}
+.ust{height:18px;font-size:.8rem;line-height:18px;white-space:nowrap}
+.unit.boss{width:170px}
+.unit.t0 .uname{color:#FFB9B9}.unit.t1 .uname{color:#B4DAFF}
+.unit.bench{opacity:.22}
+.stage.shake{animation:shake2 .35s}
+@keyframes shake2{20%{transform:translate(-6px,3px)}40%{transform:translate(6px,-3px)}60%{transform:translate(-4px,-2px)}80%{transform:translate(4px,2px)}}
+@media (prefers-reduced-motion:reduce){.stage.shake{animation:none}}
+#modes{margin:0 0 8px}
+.stats{font-family:"Zen Kaku Gothic New",sans-serif;font-size:.9rem;line-height:1.4;margin:10px auto 0;max-width:540px;text-align:left}
+.st-row{display:grid;grid-template-columns:1fr 64px 44px 84px;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);align-items:baseline}
+.st-row span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+.st-row.h{color:var(--muted);font-size:.78rem}
+.mvp{display:inline-block;font-size:.7rem;font-weight:900;background:var(--gold);color:#fff;border-radius:999px;padding:0 8px;margin-left:6px}
+#rulesBody p{margin:6px 0;font-size:.9rem}
 .online{margin-bottom:20px}
 .online .actions{justify-content:flex-start}
 .online #netCode{width:110px;text-transform:uppercase}
@@ -250,14 +267,17 @@ body.guest #editor{display:none}
         <button class="ghost" id="skip" disabled>Voir la fin</button>
         <button class="ghost" id="speed">Vitesse ×1</button>
         <button class="ghost" id="sim">Simuler 200 combats</button>
+        <button class="ghost" id="sound">Son : oui</button>
       </div>
     </div>
+    <div class="tabs" id="modes" role="tablist" aria-label="Mode de combat"></div>
     <p class="sub" id="arenaHint" style="margin:0 0 10px"></p>
     <div id="matchups"></div>
     <div class="stage" id="stage" hidden></div>
     <div class="winner" id="winner"></div>
     <div class="log" id="log" aria-live="polite" hidden></div>
     <div id="winrates"></div>
+    <details id="rules"><summary>Règles du combat</summary><div id="rulesBody"></div></details>
 
   </section>
 
@@ -419,7 +439,7 @@ function render(){
       return `<span class="k">${esc(x.name)}</span><span style="color:${v.col};font-weight:700">${esc(v.label)}</span><span class="p">+${v.pts}</span>`;
     }).join("");
     const border = (!finished() && i===pIdx) ? "var(--sakura)" : "var(--line)";
-    return `<div class="card" style="border-color:${border}"><div class="card-head"><b>${esc(p.name)}</b>${done?`<span class="rank" style="color:${rankCol(r)}">${r}</span>`:""}</div><div class="card-body">${avatarSVG(p,84)}<div class="attrs">${rows}</div></div>${typeof miniCounters==="function"?miniCounters(p):""}<div class="total">${pts} points</div></div>`;
+    return `<div class="card" style="border-color:${border}"><div class="card-head"><b>${esc(p.name)}</b>${done?`<span class="rank" style="color:${rankCol(r)}">${r}</span>`:""}</div><div class="card-body">${avatarSVG(p,84)}<div class="attrs">${rows}</div></div>${typeof miniCounters==="function"?miniCounters(p):""}${ultLine(p)}<div class="total">${pts} points</div></div>`;
   }).join("");
 }
 
@@ -439,6 +459,7 @@ function hostSpin(){
 function startSpin(oi,target){
   const g=groups[gIdx], o=opts(g)[oi]; if(!o)return;
   spinning=true;$("spin").disabled=true;$("reveal").className="reveal";$("hub").textContent="…";
+  if(!matchMedia("(prefers-reduced-motion: reduce)").matches) (function tick(d){ if(d>420) return; sfx("tick"); setTimeout(()=>tick(d*1.13),d); })(45);
   const cur=((rotation%360)+360)%360;
   rotation+=360*6+(((360-target)-cur+720)%360);
   $("wheel").style.transform=`rotate(${rotation}deg)`;
@@ -452,7 +473,7 @@ function finish(g,o){
   $("hub").textContent=o.label;
   const rv=$("reveal");rv.style.borderColor=r.col;
   rv.innerHTML=`${avatarSVG(p,130)}<div>${esc(p.name)} · ${esc(g.name)}</div><div class="val">${esc(o.label)}</div><span class="tag" style="background:${r.col}">${r.name} · ${(prob*100).toFixed(1)} %</span><div style="margin-top:4px">+${Number(o.pts)||0} points</div>`;
-  rv.className="reveal show";
+  rv.className="reveal show"; sfx(r.name==="Légendaire"?"win":r.name==="Épique"?"heal":"dodge");
   setTimeout(()=>{ // passe à la roue suivante
     spinning=false;
     locate(); 
@@ -690,12 +711,13 @@ function statsOf(p){
   const pt=n=>Number(res(n)?.pts)||0;
   let extra=0; groups.forEach((g,j)=>{if(!KNOWN.includes(g.name.toLowerCase())&&p.res[j]) extra+=Number(p.res[j].pts)||0;});
   const race=pt("race"),force=pt("force"),mag=pt("magie"),el=pt("élément"),pow=pt("pouvoir spécial"),arm=pt("arme");
-  const hp=Math.round(130+race*3+force*1.2+extra);
+  const hp=Math.round((130+race*3+force*1.2+extra)*1.6);
   const tags=new Set(); groups.forEach((g,j)=>{if(p.res[j]) tags.add(p.res[j].label);});
   return {tags, name:p.name, race:res("race")?.label||"?", weapon:res("arme")?.label||"Poings",
     element:res("élément")?.label||"", power:res("pouvoir spécial")?.label||"Coup spécial", magic:res("magie")?.label||"magie",
     maxHp:hp, hp, atk:12+force+arm*0.8+extra/5, mag:6+mag*1.1+el*0.6+extra/5,
-    def:4+race*0.4+arm*0.3+extra/6, spd:10+pow*0.4+el*0.2, spec:0.07+pow/320};
+    def:4+race*0.4+arm*0.3+extra/6, spd:10+pow*0.4+el*0.2, spec:0.07+pow/320,
+    res:p.res, pow, rg:1+pow/100, rage:0, buff:1, st:{}, dealt:0, kos:0, best:0, team:0};
 }
 
 /* ---------- Counters ---------- */
@@ -763,127 +785,388 @@ function matchups(F){
   return out;
 }
 
-function battle(players, withLog){
-  const F=players.map(statsOf), ev=[]; let round=0;
-  const push=o=>{ if(withLog) ev.push(Object.assign(o,{hp:F.map(f=>f.hp)})); };
-  push({kind:"intro",t:"Les combattants entrent dans l'arène !",cls:"big"});
-  while(F.filter(f=>f.hp>0).length>1 && round<300){
-    round++; push({kind:"round",n:round,t:`— Manche ${round} —`});
-    // régénération
-    F.forEach((f,i)=>{ if(f.hp>0 && f.tags.has("Régénération") && f.hp<f.maxHp){
-      if(f.noRegen){ return; }
-      const h=Math.min(f.maxHp-f.hp,Math.round(f.maxHp*.08)); f.hp+=h; push({kind:"heal",d:i,v:h,t:`${f.name} se régénère : +${h} PV`}); }});
-    const order=F.filter(f=>f.hp>0).map(f=>({f,k:f.spd+Math.random()*8})).sort((a,b)=>b.k-a.k).map(x=>x.f);
-    for(const A of order){
-      if(A.hp<=0) continue;
-      const foes=F.filter(f=>f!==A&&f.hp>0); if(!foes.length) break;
-      const D=foes[Math.floor(Math.random()*foes.length)], a=F.indexOf(A), d=F.indexOf(D);
-      const useMag = A.mag>A.atk ? Math.random()<.65 : Math.random()<.35;
-      let mode=useMag?"mag":"phys";
-      // esquive (+ bonus et counters)
+/* ---------- Techniques, états, terrains, modes ---------- */
+const TECH={"Poings":["Direct du droit","Uppercut","Rafale de coups"],"Épée":["Taille horizontale","Estoc","Lame tournoyante"],
+ "Dague":["Coup en traître","Lancer de dague","Mille piqûres"],"Lance":["Charge perçante","Balayage","Javelot"],
+ "Arc":["Flèche précise","Pluie de flèches","Tir perçant"],"Bâton magique":["Coup de bâton","Onde de choc"],
+ "Katana":["Iaido éclair","Coupe du croissant","Danse des lames"],"Hache":["Fendoir","Tourbillon de hache"],
+ "Nunchakus":["Enchaînement","Moulinet"],"Éventail de combat":["Lame d'éventail","Danse de l'éventail"],
+ "Fouet":["Claquement","Étranglement"],"Marteau géant":["Écrasement","Séisme"],"Faux":["Fauchage","Moisson des âmes"],
+ "Pistolets":["Double tir","Rafale","Tir à bout portant"],"Gantelets":["Poing de fer","Marteau-pilon"],
+ "Bouclier vivant":["Coup de bouclier","Morsure du bouclier"],"Épée maudite":["Entaille maudite","Soif de sang"],
+ "Arme divine":["Jugement","Lame céleste"]};
+const SPELL_EL={"Feu":["Boule de feu","Colonne de flammes"],"Eau":["Lame d'eau","Raz-de-marée"],"Vent":["Lame de vent","Tornade"],
+ "Terre":["Pic rocheux","Avalanche"],"Glace":["Éclat de givre","Blizzard"],"Foudre":["Éclair","Tonnerre en chaîne"],
+ "Plante":["Fouet de ronces","Graines explosives"],"Métal":["Pluie de lames","Pieu d'acier"],"Poison":["Nuage toxique","Dard venimeux"],
+ "Sable":["Tempête de sable","Lance de sable"],"Ombre":["Griffe d'ombre","Nuit sans fin"],"Lumière":["Rayon sacré","Éclat aveuglant"],
+ "Néant":["Sphère du néant","Effacement"],"Cosmos":["Pluie d'étoiles","Supernova"]};
+const SPELL_MG={"Télékinésie":["Projection mentale","Écrasement mental"],"Illusion":["Cauchemar éveillé","Double trompeur"],
+ "Invocation":["Familier enragé","Nuée d'esprits"],"Magie des runes":["Rune explosive","Sceau de foudre"],
+ "Malédictions":["Mauvais œil","Sort de faiblesse"],"Magie du sang":["Lance de sang","Hémorragie"],
+ "Nécromancie":["Main squelettique","Armée des morts"],"Gravité":["Écrasement gravitationnel","Trou noir"],
+ "Magie spatiale":["Déchirure spatiale","Coupe dimensionnelle"],"Magie des étoiles":["Comète","Constellation"],
+ "Magie du temps":["Boucle temporelle","Vieillissement accéléré"],"Magie du chaos":["Rayon chaotique","Entropie"],
+ "Barrières":["Mur percutant"],"Magie de soin":["Lumière purifiante"]};
+// pouvoir spécial -> [nom de l'ultime, type d'effet]
+const ULT={"Super vitesse":["Mille coups en une seconde","multi"],"Super force":["Poing météore","big"],"Régénération":["Renaissance","heal"],
+ "Invisibilité":["Assassinat silencieux","crit"],"Vol":["Piqué du faucon","big"],"Clones":["Assaut des clones","multi"],
+ "Métamorphose":["Forme bestiale","buff"],"Parler aux animaux":["Ruée sauvage","aoe"],"Lecture des pensées":["Contre parfait","crit"],
+ "Téléportation":["Frappe dans le dos","crit"],"Copie des pouvoirs":["Reflet parfait","drain"],"Contrôle des esprits":["Marionnette","charm"],
+ "Forme géante":["Piétinement","aoe"],"Absorption d'énergie":["Drain total","drain"],"Voir le futur":["Destin scellé","crit"],
+ "Annuler les pouvoirs":["Silence absolu","silence"],"Immortalité":["Flamme du phénix","heal"],"Ressusciter les morts":["Armée des revenants","aoe"],
+ "Arrêter le temps":["Le monde s'arrête","stop"],"Réécrire la réalité":["Nouvelle réalité","big2"]};
+const ULT_TXT={big:"un coup énorme",big2:"un coup dévastateur",crit:"un coup critique garanti qui ignore la défense",multi:"trois attaques d'affilée",
+ aoe:"frappe tous les adversaires",heal:"se soigne puis frappe",drain:"frappe et vole des PV",buff:"frappe et gagne +35 % de dégâts",
+ charm:"force la cible à frapper son camp",silence:"frappe et bloque l'ultime adverse",stop:"étourdit tous les adversaires puis frappe"};
+const STATUS={burn:{n:"Brûlure",i:"🔥",dur:3,dmg:.05},poison:{n:"Poison",i:"☠️",dur:4,dmg:.04},bleed:{n:"Saignement",i:"🩸",dur:3,dmg:.04},
+ freeze:{n:"Gel",i:"❄️",dur:1},stun:{n:"Étourdissement",i:"💫",dur:1},blind:{n:"Aveuglement",i:"🌫️",dur:2},
+ curse:{n:"Malédiction",i:"👁️",dur:3},silence:{n:"Silence",i:"🔇",dur:3},buff:{n:"Puissance",i:"💪",dur:99}};
+const STATUS_SRC=[{tag:"Feu",s:"burn",p:.3,m:"mag"},{tag:"Poison",s:"poison",p:.35,m:"mag"},{tag:"Glace",s:"freeze",p:.2,m:"mag"},
+ {tag:"Foudre",s:"stun",p:.18,m:"mag"},{tag:"Sable",s:"blind",p:.28,m:"mag"},{tag:"Lumière",s:"blind",p:.22,m:"mag"},
+ {tag:"Malédictions",s:"curse",p:.35,m:"mag"},{tag:"Magie du sang",s:"bleed",p:.35,m:"mag"},{tag:"Épée maudite",s:"curse",p:.3,m:"phys"},
+ {tag:"Faux",s:"bleed",p:.3,m:"phys"},{tag:"Dague",s:"bleed",p:.3,m:"phys"},{tag:"Katana",s:"bleed",p:.25,m:"phys"},
+ {tag:"Hache",s:"bleed",p:.25,m:"phys"},{tag:"Marteau géant",s:"stun",p:.2,m:"phys"},{tag:"Gantelets",s:"stun",p:.15,m:"phys"},
+ {tag:"Fouet",s:"stun",p:.12,m:"phys"}];
+const IMMUNE={poison:["Cyborg","Esprit","Poison"],bleed:["Cyborg","Esprit","Homme-ombre"],burn:["Démon","Dragonien","Feu"],
+ freeze:["Glace","Démon"],stun:["Esprit"],blind:["Homme-ombre","Lecture des pensées"],curse:["Ange","Dieu déchu"]};
+const TERRAINS=[
+ {n:"Colisée",t:"coups critiques plus fréquents",crit:.08,up:[],down:[],bg:"linear-gradient(180deg,#2A1B5C 0%,#5B3A8C 52%,#3B2A5E 52.5%,#2A1F45 100%)"},
+ {n:"Volcan",up:["Feu","Terre"],down:["Glace","Plante"],bg:"linear-gradient(180deg,#3A0C0C 0%,#B5411E 52%,#4A1D12 52.5%,#26100C 100%)"},
+ {n:"Océan déchaîné",up:["Eau","Foudre"],down:["Feu","Sable"],bg:"linear-gradient(180deg,#0B2A4A 0%,#2E7FA8 52%,#14506E 52.5%,#0B2F44 100%)"},
+ {n:"Forêt ancienne",up:["Plante","Poison","Vent"],down:["Métal","Foudre"],bg:"linear-gradient(180deg,#0F2E1E 0%,#3E8A52 52%,#22502E 52.5%,#12301C 100%)"},
+ {n:"Glacier",up:["Glace","Eau"],down:["Feu","Plante"],bg:"linear-gradient(180deg,#1C3A5E 0%,#8FC4E0 52%,#5E8FAE 52.5%,#33566E 100%)"},
+ {n:"Désert brûlant",up:["Sable","Feu"],down:["Eau","Glace"],bg:"linear-gradient(180deg,#5A2E12 0%,#D99A4A 52%,#8E6230 52.5%,#55381A 100%)"},
+ {n:"Cimetière maudit",up:["Ombre","Néant","Poison"],down:["Lumière"],bg:"linear-gradient(180deg,#0E0A1A 0%,#3A2E55 52%,#221A33 52.5%,#100C1A 100%)"},
+ {n:"Temple céleste",up:["Lumière","Cosmos","Vent"],down:["Ombre","Néant"],bg:"linear-gradient(180deg,#3E5FA8 0%,#E8D9A0 52%,#A8956A 52.5%,#5E5440 100%)"}];
+const EVENTS=[["Pluie de météores","dmg"],["Source de vie","heal"],["Vent de folie","rage"],["Brouillard épais","blind"]];
+const MODES={
+ melee:{n:"Mêlée générale",min:2,d:"Chacun pour soi : tout le monde s'affronte en même temps, le dernier debout gagne."},
+ teams:{n:"Équipes",min:3,d:"Deux équipes : joueurs 1, 3, 5… (Rouge) contre joueurs 2, 4, 6… (Bleue). Les soigneurs soignent leurs alliés."},
+ tournoi:{n:"Tournoi",min:3,d:"Duels à élimination directe, tirés au sort, jusqu'à la finale. Les PV sont remis à neuf avant chaque duel."},
+ boss:{n:"Raid de boss",min:1,d:"Tous les joueurs s'allient contre un boss géant tiré au hasard, qui joue plusieurs fois par manche."}};
+const BOSSES=[
+ {name:"Dragon ancien",build:["Dragonien","Titanesque","Magie élémentaire","Feu","Forme géante","Poings"]},
+ {name:"Roi liche",build:["Esprit","Très forte","Nécromancie","Ombre","Ressusciter les morts","Faux"]},
+ {name:"Titan de fer",build:["Cyborg","Titanesque","Barrières","Métal","Super force","Marteau géant"]},
+ {name:"Seigneur démon",build:["Démon","Monstrueuse","Malédictions","Feu","Contrôle des esprits","Épée maudite"]},
+ {name:"Archange déchu",build:["Dieu déchu","Surhumaine","Magie des étoiles","Lumière","Arrêter le temps","Arme divine"]},
+ {name:"Kraken des abysses",build:["Homme-poisson","Monstrueuse","Gravité","Eau","Absorption d'énergie","Fouet"]}];
+const rnd=a=>a[Math.floor(Math.random()*a.length)];
+function pickTech(A){return rnd(TECH[A.weapon]||["Attaque"]);}
+function pickSpell(A){const l=(SPELL_EL[A.element]||[]).concat(SPELL_MG[A.magic]||[]);return l.length?rnd(l):"Décharge magique";}
+function ultOf(power){return ULT[power]||["Coup ultime","big"];}
+function ultLine(p){const pw=resBy(p,"pouvoir spécial");
+  return pw?`<div class="cmini"><p><span class="lab l-sp">Ultime :</span> ${esc(ultOf(pw)[0])} (${ULT_TXT[ultOf(pw)[1]]})</p></div>`:"";}
+function makeBoss(H){
+  const b=rnd(BOSSES), res={};
+  groups.forEach((g,j)=>{const o=g.options.find(o=>b.build.includes(o.label)); if(o) res[j]={label:o.label,pts:Number(o.pts)||0,col:"#FFD84A"};});
+  const f=statsOf({name:b.name,res}), n=H.length;
+  const hp=H.reduce((s,h)=>s+h.maxHp,0), avg=H.reduce((s,h)=>s+Math.max(h.atk,h.mag),0)/n, def=H.reduce((s,h)=>s+h.def,0)/n;
+  f.boss=true; f.team=1; f.actions=.5+n*.6;
+  f.maxHp=f.hp=Math.round(hp*BOSS_TUNE.hp+BOSS_TUNE.hp0);
+  const pw=avg*BOSS_TUNE.atk+def*.5; f.atk=f.atk>=f.mag?pw:pw*.8; f.mag=f.mag>f.atk?pw:pw*.8;
+  f.def=def; f.rg=1;
+  return f;
+}
+const BOSS_TUNE={hp:1,hp0:40,atk:.8};
+
+function battle(players, withLog, mode){
+  mode=MODES[mode]?mode:"melee";
+  const F=players.map(statsOf), ev=[], ti=Math.floor(Math.random()*TERRAINS.length), terrain=TERRAINS[ti];
+  if(mode==="boss"){ F.forEach(f=>f.team=0); F.push(makeBoss(F)); }
+  else F.forEach((f,i)=>f.team=mode==="teams"?i%2:i);
+  const icons=f=>f.hp<=0?"":Object.keys(f.st).filter(k=>f.st[k]>0).map(k=>STATUS[k].i).join("")+(f.enraged?"💢":"");
+  const push=o=>{ if(withLog) ev.push(Object.assign(o,{hp:F.map(f=>f.hp),st:F.map(icons),rg:F.map(f=>Math.round(f.rage))})); };
+  const idx=f=>F.indexOf(f);
+  let ids=F.map((_,i)=>i), sudden=1;
+  const living=()=>ids.map(i=>F[i]).filter(f=>f.hp>0);
+  const teams=()=>new Set(living().map(f=>f.team)).size;
+  const gain=(f,x)=>{f.rage=Math.min(100,f.rage+x*f.rg);};
+  const heal=(f,h,t)=>{h=Math.min(f.maxHp-f.hp,Math.round(h)); if(h<=0) return; f.hp+=h; push({kind:"heal",d:idx(f),v:h,t:`${t} : +${h} PV`});};
+  const immune=(D,s)=>(IMMUNE[s]||[]).some(x=>D.tags.has(x))||(D.boss&&(s==="freeze"||s==="stun")&&Math.random()<.6);
+
+  function fallen(A,D){ // après des dégâts : rage du désespoir, immortalité, K.O.
+    const d=idx(D);
+    if(D.hp>0){
+      if(!D.enraged&&D.hp<D.maxHp*.25){ D.enraged=true; D.buff*=1.3; push({kind:"enrage",d,t:`${D.name} est au bord du K.O. et entre en rage ! (+30 % de dégâts)`,cls:"big"}); }
+      return;
+    }
+    if(D.tags.has("Immortalité")&&!D.revived){
+      D.revived=true;
+      if(!A||blocked(A,D,"Immortalité")){ D.hp=1; push({kind:"revive",d,t:`${D.name} est immortel et se relève avec 1 PV !`,cls:"big"}); return; }
+      push({kind:"info",d,t:`${A.name} contre l'Immortalité de ${D.name} !`,cls:"big"});
+    }
+    if(A&&A!==D) A.kos++;
+    D.st={}; D.rage=0;
+    push({kind:"ko",d,t:`${D.name} est K.O. !`,cls:"ko"});
+  }
+
+  function attack(A,D,o){
+    o=o||{};
+    const a=idx(A), d=idx(D);
+    const useMag = A.mag>A.atk ? (o.special||Math.random()<.65) : (!o.special&&Math.random()<.35);
+    const mode=o.special?"special":(useMag?"mag":"phys"), base=useMag?"mag":"phys";
+    const tech=o.name||(useMag?pickSpell(A):pickTech(A));
+    if(!o.sure){
+      if(A.st.blind>0&&Math.random()<.4){ push({kind:"dodge",a,d,t:`${A.name} tente ${tech}, mais aveuglé, rate ${D.name} !`}); return 0; }
       let dodge=.06+(D.spd-A.spd)/200, why="";
       for(const [k,b] of [["Voir le futur",.2],["Invisibilité",.15],["Super vitesse",.1]]){
         if(!D.tags.has(k)) continue;
-        if(k==="Voir le futur" && mode!=="phys") continue;
+        if(k==="Voir le futur" && base!=="phys") continue;
         if(blocked(A,D,k)){ dodge+=b; why=why||k; }
       }
-      dodge=Math.min(.5,Math.max(.03,dodge));
-      if(Math.random()<dodge){push({kind:"dodge",a,d,t:`${A.name} attaque ${D.name}, mais ${D.name} esquive${why?` (${why})`:""} !`});continue;}
-      let dmg=(useMag?A.mag:A.atk)*(0.85+Math.random()*0.3), crit=false, adv=false, notes=[];
-      let txt = useMag ? `${A.name} lance sa ${A.magic.toLowerCase()} sur ${D.name}` : `${A.name} frappe ${D.name} (${A.weapon.toLowerCase()})`;
-      let cls="";
-      if(Math.random()<A.spec){
-        if(blocked(A,D,"Annuler les pouvoirs")){ notes.push(`${D.name} annule le pouvoir de ${A.name}`); }
-        else { dmg*=2.2; mode="special"; txt=`${A.name} utilise ${A.power.toUpperCase()} contre ${D.name}`; cls="big"; }
-      }
-      if(mode!=="special" && Math.random()<.1){dmg*=1.5; crit=true; txt+=" (coup critique)";}
-      if(A.element && (BEATS[A.element]||[]).includes(D.element)){dmg*=1.3; adv=true; txt+=` · ${A.element} bat ${D.element}`;}
-      const cm=counterMult(A,D,mode==="special"?"special":mode); dmg*=cm.m; notes=notes.concat(cm.notes);
-      dmg=Math.max(2,Math.round(dmg-D.def*0.5));
-      if(has(A,SPECIAL_COUNTERS["Régénération"].by) && D.tags.has("Régénération") && !D.noRegen){ D.noRegen=true; notes.push(`la régénération de ${D.name} est bloquée`); }
-      D.hp=Math.max(0,D.hp-dmg);
-      const counter = cm.m>1 ? "up" : cm.m<1 ? "down" : (notes.length?"info":"");
-      push({kind:"hit",a,d,mode,crit,adv,dmg,counter,notes,t:`${txt} : −${dmg} PV${notes.length?` [${notes.join(" · ")}]`:""}`,cls});
-      if(D.hp<=0){
-        if(D.tags.has("Immortalité") && !D.revived){
-          D.revived=true;
-          if(blocked(A,D,"Immortalité")){ D.hp=1; push({kind:"revive",d,t:`${D.name} est immortel et se relève avec 1 PV !`,cls:"big"}); continue; }
-          push({kind:"info",d,t:`${A.name} contre l'Immortalité de ${D.name} !`,cls:"big"});
-        }
-        push({kind:"ko",d,t:`${D.name} est K.O. !`,cls:"ko"});
-      }
+      if(D.st.freeze>0||D.st.stun>0) dodge=0; else dodge=Math.min(.5,Math.max(.03,dodge));
+      if(Math.random()<dodge){ gain(D,8); push({kind:"dodge",a,d,t:`${A.name} tente ${tech}, mais ${D.name} esquive${why?` (${why})`:""} !`}); return 0; }
+    }
+    let dmg=(useMag?A.mag:A.atk)*(0.85+Math.random()*0.3)*(o.mult||1)*A.buff*(A.st.curse>0?.75:1)*sudden;
+    let crit=!!o.crit, adv=false, notes=[];
+    if(!o.special&&Math.random()<.1+(terrain.crit||0)) crit=true;
+    if(crit) dmg*=1.5;
+    let txt = o.txt || (o.special ? `${A.name} déchaîne ${tech.toUpperCase()} sur ${D.name}` : useMag ? `${A.name} lance ${tech} sur ${D.name}` : `${A.name} utilise ${tech} sur ${D.name}`);
+    if(crit) txt+=" (coup critique)";
+    if(A.element && (BEATS[A.element]||[]).includes(D.element)){ dmg*=1.3; adv=true; txt+=` · ${A.element} bat ${D.element}`; }
+    if(terrain.up.includes(A.element)){ dmg*=1.2; notes.push(`${terrain.n} renforce ${A.element}`); }
+    else if(terrain.down.includes(A.element)){ dmg*=.85; notes.push(`${terrain.n} affaiblit ${A.element}`); }
+    const cm=counterMult(A,D,mode); dmg*=cm.m; notes=notes.concat(cm.notes);
+    dmg=Math.max(2,Math.round(dmg-D.def*(o.pierce?0:0.5)));
+    if(has(A,SPECIAL_COUNTERS["Régénération"].by) && D.tags.has("Régénération") && !D.noRegen){ D.noRegen=true; notes.push(`la régénération de ${D.name} est bloquée`); }
+    D.hp=Math.max(0,D.hp-dmg);
+    if(A!==D){ A.dealt+=dmg; A.best=Math.max(A.best,dmg); gain(A,22); }
+    gain(D,14);
+    let stx=null;
+    if(D.hp>0&&A!==D) for(const r of STATUS_SRC){
+      if(!A.tags.has(r.tag)||r.m!==base||immune(D,r.s)||Math.random()>=r.p) continue;
+      D.st[r.s]=STATUS[r.s].dur; stx=r.s; notes.push(`${STATUS[r.s].n} !`); break;
+    }
+    const counter = cm.m>1 ? "up" : cm.m<1 ? "down" : (cm.notes.length?"info":"");
+    push({kind:"hit",a,d,mode,phys:!useMag,crit,adv,dmg,counter,notes,tech,stx,t:`${txt} : −${dmg} PV${notes.length?` [${notes.join(" · ")}]`:""}`,cls:o.special?"big":""});
+    fallen(A,D);
+    return dmg;
+  }
+
+  function ultimate(A,D,foes){
+    const [name,type]=ultOf(A.power), k=1+A.pow/150, a=idx(A), S={special:true,sure:true,name};
+    if(blocked(A,D,"Annuler les pouvoirs")){
+      push({kind:"info",d:idx(D),label:"Annulé !",t:`${D.name} annule ${name} de ${A.name} !`,cls:"big"});
+      attack(A,D); return;
+    }
+    push({kind:"ult",a,name,t:`★ ${A.name} déchaîne son ultime : ${name.toUpperCase()} !`,cls:"big"});
+    const alive=()=>foes.filter(f=>f.hp>0);
+    switch(type){
+      case "big2": attack(A,D,Object.assign({mult:3*k},S)); break;
+      case "crit": attack(A,D,Object.assign({mult:1.6*k,crit:true,pierce:true},S)); break;
+      case "multi": for(let n=0;n<3&&A.hp>0;n++){ const T=D.hp>0?D:rnd(alive()); if(!T) break; attack(A,T,Object.assign({mult:.95*k},S)); } break;
+      case "aoe": alive().forEach(f=>{ if(A.hp>0) attack(A,f,Object.assign({mult:1.2*k},S)); }); break;
+      case "heal": heal(A,A.maxHp*.35,`${A.name} renaît de ses cendres`); attack(A,D,Object.assign({mult:1.3*k},S)); break;
+      case "drain": { const v=attack(A,D,Object.assign({mult:1.9*k},S)); if(A.hp>0) heal(A,v/2,`${A.name} absorbe l'énergie de ${D.name}`); break; }
+      case "buff": A.buff*=1.35; A.st.buff=99; attack(A,D,Object.assign({mult:1.4*k},S)); break;
+      case "charm": { const al=living().filter(f=>f.team===D.team&&f!==D), T=al.length?rnd(al):D;
+        attack(D,T,{special:true,sure:true,name,mult:1.5*k,txt:`Manipulé par ${A.name}, ${D.name} frappe ${T===D?"son propre corps":T.name}`}); break; }
+      case "silence": attack(A,D,Object.assign({mult:1.7*k},S)); if(D.hp>0){ D.rage=0; D.st.silence=STATUS.silence.dur; } break;
+      case "stop": alive().forEach(f=>{ if(!immune(f,"stun")) f.st.stun=1; }); attack(A,D,Object.assign({mult:1.6*k},S)); break;
+      default: attack(A,D,Object.assign({mult:2.4*k},S));
     }
   }
-  const alive=F.filter(f=>f.hp>0);
-  const winner = alive.length===1 ? alive[0] : alive.sort((a,b)=>b.hp/b.maxHp-a.hp/a.maxHp)[0];
-  return {F,ev,winner};
+
+  function turn(A){
+    const a=idx(A);
+    for(const k of ["freeze","stun"]) if(A.st[k]>0){
+      A.st[k]--; push({kind:"skip",d:a,label:k==="freeze"?"❄️ Gelé !":"💫 Étourdi !",t:`${A.name} est ${k==="freeze"?"gelé":"étourdi"} et passe son tour.`}); return;
+    }
+    const foes=living().filter(f=>f.team!==A.team); if(!foes.length) return;
+    if(A.tags.has("Magie de soin")&&Math.random()<.3){
+      const T=living().filter(f=>f.team===A.team&&f.hp<f.maxHp*.6).sort((x,y)=>x.hp/x.maxHp-y.hp/y.maxHp)[0];
+      if(T){ heal(T,12+A.mag*1.1,`${A.name} lance Soin${T===A?"":` sur ${T.name}`}`); return; }
+    }
+    const D=rnd(foes);
+    if(A.rage>=100&&!(A.st.silence>0)){ A.rage=0; ultimate(A,D,foes); }
+    else attack(A,D);
+  }
+
+  function run(){
+    let round=0; sudden=1;
+    while(teams()>1&&round<60){
+      round++; push({kind:"round",n:round,t:`— Manche ${round} —`});
+      if(round>=15){
+        if(round===15) push({kind:"event",name:"Mort subite !",t:"Mort subite ! Les dégâts augmentent à chaque manche.",cls:"big"});
+        sudden=1+.2*(round-14);
+      } else if(round>1&&Math.random()<.16){
+        const [name,type]=rnd(EVENTS), L=living();
+        if(type==="dmg") L.forEach(f=>{f.hp=Math.max(1,f.hp-Math.round(Math.min(f.maxHp*.08,40)));});
+        if(type==="heal") L.forEach(f=>{f.hp=Math.min(f.maxHp,f.hp+Math.round(Math.min(f.maxHp*.12,60)));});
+        if(type==="rage") L.forEach(f=>{f.rage=Math.min(100,f.rage+50);});
+        if(type==="blind") L.forEach(f=>{if(!immune(f,"blind")) f.st.blind=1;});
+        push({kind:"event",name,t:`⚡ ${name} : ${{dmg:"tout le monde perd des PV",heal:"tout le monde récupère des PV",rage:"les jauges d'ultime se remplissent",blind:"plus personne n'y voit rien"}[type]} !`,cls:"big"});
+      }
+      for(const f of living()){
+        if(teams()<=1) break;
+        for(const s of ["burn","poison","bleed"]) if(f.st[s]>0&&f.hp>0){
+          const v=Math.min(f.hp,Math.max(2,Math.round(Math.min(f.maxHp*STATUS[s].dmg,30)*sudden)));
+          f.hp-=v; f.st[s]--;
+          push({kind:"dot",d:idx(f),v,s,t:`${f.name} souffre (${STATUS[s].n}) : −${v} PV`});
+          fallen(null,f);
+        }
+        if(f.hp>0&&f.tags.has("Régénération")&&!f.noRegen) heal(f,f.maxHp*.08,`${f.name} se régénère`);
+        if(f.hp>0) gain(f,5);
+      }
+      if(teams()<=1) break;
+      const order=living().map(f=>({f,k:f.spd+Math.random()*8})).sort((x,y)=>y.k-x.k).map(x=>x.f);
+      for(const A of order){
+        const n=A.boss?Math.floor(A.actions)+(Math.random()<A.actions%1?1:0):1;
+        for(let k=0;k<n&&A.hp>0&&teams()>1;k++) turn(A);
+      }
+      living().forEach(f=>["blind","curse","silence"].forEach(s=>{if(f.st[s]>0) f.st[s]--;}));
+    }
+    const L=living();
+    if(new Set(L.map(f=>f.team)).size>1){ // limite de manches : la meilleure santé gagne
+      const sc={}; L.forEach(f=>sc[f.team]=(sc[f.team]||0)+f.hp/f.maxHp);
+      const best=Object.keys(sc).sort((x,y)=>sc[y]-sc[x])[0];
+      L.forEach(f=>{if(String(f.team)!==best) f.hp=0;});
+    }
+  }
+
+  const up=terrain.up.length?` ${terrain.up.join(", ")} renforcés`:"", down=terrain.down.length?`, ${terrain.down.join(", ")} affaiblis`:"";
+  push({kind:"intro",t:`${MODES[mode].n} · Terrain : ${terrain.n} (${terrain.t||(up+down).trim()})`,cls:"big"});
+  if(mode==="boss") push({kind:"info",d:F.length-1,label:"Boss !",t:`${F[F.length-1].name} apparaît !`,cls:"big"});
+  if(mode==="tournoi"){
+    let order=F.map((_,i)=>i).sort(()=>Math.random()-.5);
+    while(order.length>1){
+      const next=[], stage=order.length<=2?"Finale":order.length<=4?"Demi-finale":"Quart de finale";
+      for(let k=0;k<order.length;k+=2){
+        const x=order[k], y=order[k+1];
+        if(y===undefined){ next.push(x); push({kind:"info",d:x,label:"Qualifié !",t:`${F[x].name} passe directement au tour suivant.`}); continue; }
+        [x,y].forEach(i=>{const f=F[i]; f.hp=f.maxHp; f.st={}; f.rage=0; f.buff=1; f.enraged=false; f.noRegen=false;});
+        ids=[x,y];
+        push({kind:"match",a:x,b:y,label:`${stage} : ${F[x].name} contre ${F[y].name}`,t:`⚔ ${stage} : ${F[x].name} contre ${F[y].name}`,cls:"big"});
+        run();
+        next.push(F[x].hp>0?x:y);
+      }
+      order=next;
+    }
+    F.forEach((f,i)=>{if(i!==order[0]) f.hp=0;});
+  } else run();
+
+  const top=F.find(f=>f.hp>0)||F[0], wt=top.team;
+  const winners=F.map((f,i)=>f.team===wt?i:-1).filter(i=>i>=0);
+  let winLabel=top.name, winText=`${top.name} remporte le combat !`;
+  if(mode==="tournoi") winText=`${top.name} remporte le tournoi !`;
+  if(mode==="teams"){ winLabel=wt===0?"Équipe Rouge":"Équipe Bleue"; winText=`L'${winLabel.toLowerCase().replace("équipe","équipe")} remporte le combat !`; }
+  if(mode==="boss"){
+    const boss=F[F.length-1];
+    if(wt===0){ winLabel=players.length>1?"Les héros":players[0].name; winText=players.length>1?`Les héros triomphent de ${boss.name} !`:`${players[0].name} triomphe de ${boss.name} !`; }
+    else { winLabel=boss.name; winText=`${boss.name} écrase les héros…`; }
+  }
+  return {F,ev,winners,winLabel,winText,mode,terrain:ti};
 }
 
+/* --- sons --- */
+let muted=false, AC=null;
+const SFX={hit:["square",220,90,.12,.07],crit:["sawtooth",520,110,.22,.09],mag:["sine",760,300,.25,.08],ult:["sawtooth",110,880,.6,.09],
+ ko:["triangle",320,45,.5,.12],heal:["sine",500,950,.25,.07],tick:["square",900,900,.03,.025],win:["triangle",520,1040,.6,.1],dodge:["sine",900,1300,.1,.05]};
+function sfx(k){
+  if(muted||!SFX[k]) return;
+  try{
+    AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==="suspended") AC.resume();
+    const [wave,f0,f1,dur,vol]=SFX[k], t=AC.currentTime, o=AC.createOscillator(), g=AC.createGain();
+    o.type=wave; o.frequency.setValueAtTime(f0,t); o.frequency.exponentialRampToValueAtTime(f1,t+dur);
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.001,t+dur);
+    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t+dur);
+  }catch(e){}
+}
+$("sound").addEventListener("click",()=>{muted=!muted;$("sound").textContent=`Son : ${muted?"non":"oui"}`;});
+
 /* --- mise en scène --- */
-let playing=false, runId=0, current=null, step=0, speed=1;
+let playing=false, runId=0, current=null, step=0, speed=1, fightMode="melee";
 const reduceMotion=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
 const wait=ms=>new Promise(r=>setTimeout(r, reduceMotion()? Math.min(ms,120) : ms/speed));
-function arenaReady(){return players.length>=2 && finished();}
+function arenaReady(){return finished() && players.length>=MODES[fightMode].min;}
 function updateArena(){
+  if(!playing && players.length<MODES[fightMode].min) fightMode = players.length>=2 ? "melee" : "boss";
+  $("modes").innerHTML=Object.entries(MODES).map(([k,m])=>`<button role="tab" aria-selected="${k===fightMode}" data-mode="${k}"${players.length<m.min?" disabled":""}>${m.n}</button>`).join("");
   const ok=arenaReady();
   $("fight").disabled=!ok||playing; $("sim").disabled=!ok||playing;
-  $("arenaHint").textContent = ok ? "Les persos s'affrontent tous en même temps, chacun attaque un adversaire au hasard. Le dernier debout gagne. Chaque combat est différent."
-    : (players.length<2 ? "Il faut au moins 2 joueurs." : "Termine toutes les roues de tous les joueurs pour débloquer le combat.");
+  $("fight").textContent = fightMode==="tournoi" ? "Lancer le tournoi" : fightMode==="boss" ? "Affronter le boss" : "Lancer le combat";
+  $("arenaHint").textContent = MODES[fightMode].d + (finished() ? " Chaque combat est différent : terrain, techniques et événements sont tirés au hasard." : " Termine toutes les roues de tous les joueurs pour débloquer le combat.");
   const mu=$("matchups");
-  if(ok){ const list=matchups(players.map(statsOf));
-    mu.innerHTML = `<h2 style="margin:14px 0 6px;font-size:1.05rem">Counters dans ce combat</h2>` + (list.length? list.map(x=>`<p class="${x.good?"mu-up":"mu-down"}">${esc(x.txt)}</p>`).join("") : `<p class="sub" style="margin:0">Aucun counter entre ces persos.</p>`);
+  if(finished() && players.length>=2){ const list=matchups(players.map(statsOf));
+    mu.innerHTML = `<h2 style="margin:14px 0 6px;font-size:1.05rem">Counters entre les persos</h2>` + (list.length? list.map(x=>`<p class="${x.good?"mu-up":"mu-down"}">${esc(x.txt)}</p>`).join("") : `<p class="sub" style="margin:0">Aucun counter entre ces persos.</p>`);
   } else mu.innerHTML="";
   if(!ok && !playing){ $("stage").hidden=true; $("log").hidden=true; $("winner").className="winner"; $("winrates").innerHTML=""; }
 }
-function layout(F){
-  const st=$("stage"); st.hidden=false; st.innerHTML=`<div class="banner" id="banner"></div><div class="flash" id="flash"></div>`;
-  const n=F.length;
+$("modes").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-mode]"); if(!b||b.disabled||playing) return;
+  fightMode=b.dataset.mode; $("winrates").innerHTML=""; updateArena();
+});
+function layout(cur){
+  const F=cur.F, st=$("stage"); st.hidden=false; st.style.background=TERRAINS[cur.terrain].bg;
+  st.innerHTML=`<div class="banner" id="banner"></div><div class="flash" id="flash"></div>`;
+  const sided=cur.mode==="teams"||cur.mode==="boss", n=F.length, cnt=[0,0], size=[0,1].map(t=>F.filter(f=>f.team===t).length);
   F.forEach((f,i)=>{
-    const ang=Math.PI+i*2*Math.PI/n;
-    const x = 50+36*Math.cos(ang), y = n===2 ? 56 : 54+22*Math.sin(ang);
-    const u=document.createElement("div"); u.className="unit"; u.id="u"+i;
+    let x,y;
+    if(f.boss){ x=76; y=54; }
+    else if(sided){ const s=f.team, k=cnt[s]++, m=size[s]; y=m===1?56:38+k*(44/(m-1)); x=s?84-(k%2)*12:16+(k%2)*12; }
+    else { const ang=Math.PI+i*2*Math.PI/n; x=50+36*Math.cos(ang); y=n===2?56:54+22*Math.sin(ang); }
+    const u=document.createElement("div"); u.className="unit"+(f.boss?" boss":"")+(sided?" t"+f.team:""); u.id="u"+i;
     u.style.left=x+"%"; u.style.top=y+"%"; u.style.zIndex=Math.round(y);
-    u.innerHTML=`<div class="mover"><div class="uname">${esc(f.name)}</div><div class="hpbar"><i></i></div><div class="sprite ${x>50.5?"flip":""}">${avatarSVG(players[i],88)}</div></div>`;
+    u.innerHTML=`<div class="mover"><div class="uname">${esc(f.name)}</div><div class="hpbar"><i></i></div><div class="rgbar"><i></i></div><div class="ust"></div><div class="sprite ${x>50.5?"flip":""}">${avatarSVG({res:f.res},f.boss?132:88)}</div></div>`;
     st.appendChild(u);
   });
 }
 function setHP(i,hp,max){const b=document.querySelector(`#u${i} .hpbar i`); if(b){const p=Math.max(0,hp/max*100); b.style.width=p+"%"; b.style.background = p>50?"#3FBF6A":p>25?"#F5B428":"#E8452C";}}
+function refresh(e){ // jauges d'ultime, états et PV de tout le monde
+  current.F.forEach((f,i)=>{
+    setHP(i,e.hp[i],f.maxHp);
+    const r=document.querySelector(`#u${i} .rgbar i`); if(r){ r.style.width=e.rg[i]+"%"; r.classList.toggle("full",e.rg[i]>=100); }
+    const s=document.querySelector(`#u${i} .ust`); if(s) s.textContent=e.st[i];
+  });
+}
 function center(i){const s=$("stage").getBoundingClientRect(), r=document.querySelector(`#u${i} .sprite`).getBoundingClientRect();return {x:r.left-s.left+r.width/2,y:r.top-s.top+r.height/2};}
 function fx(cls,pos,html,life){const e=document.createElement("div");e.className="fx "+cls;e.style.left=pos.x+"px";e.style.top=pos.y+"px";if(html)e.innerHTML=html;$("stage").appendChild(e);setTimeout(()=>e.remove(),(life||900)/ (reduceMotion()?1:speed));return e;}
 function mover(i){return document.querySelector(`#u${i} .mover`);}
 function logLine(e){const p=document.createElement("p");p.textContent=e.t;if(e.cls)p.className=e.cls;$("log").appendChild(p);$("log").scrollTop=$("log").scrollHeight;}
 function banner(txt,big,col){const b=$("banner");b.textContent=txt;b.style.color=col||"";b.className="banner show"+(big?" big":"");}
+function flash(col){const f=$("flash");f.style.background=col;f.className="flash";void f.offsetWidth;f.className="flash on";}
+function shake(){const s=$("stage");s.classList.remove("shake");void s.offsetWidth;s.classList.add("shake");}
 
 async function animate(e){
   const F=current.F, rm=reduceMotion();
-  if(e.kind==="intro"){ F.forEach((f,i)=>setHP(i,f.maxHp,f.maxHp)); banner("Combat !",true); await wait(900); return; }
-  if(e.kind==="round"){ banner(`Manche ${e.n}`); await wait(450); return; }
-  if(e.kind==="heal"){ setHP(e.d,e.hp[e.d],F[e.d].maxHp); fx("dmg heal",{x:center(e.d).x,y:center(e.d).y-30},`+${e.v}`,900); await wait(450); return; }
-  if(e.kind==="revive"){ $("flash").style.background="#FFD84A"; $("flash").className="flash on"; setHP(e.d,1,F[e.d].maxHp); fx("txt ko gold",center(e.d),"Immortel !",1200); await wait(900); $("flash").className="flash"; return; }
-  if(e.kind==="info"){ fx("txt counter",center(e.d),"Contré !",1000); await wait(600); return; }
-  if(e.kind==="ko"){ document.getElementById("u"+e.d).classList.add("ko"); fx("txt ko",center(e.d),"K.O.",1100); await wait(700); return; }
-  const A=F[e.a], pa=center(e.a), pd=center(e.d), ma=mover(e.a), md=mover(e.d), col=ELCOL[A.element]||"#FF5FA2";
-  const dx=pd.x-pa.x, dy=pd.y-pa.y;
+  if(e.kind==="intro"){ F.forEach((f,i)=>setHP(i,f.maxHp,f.maxHp)); banner(TERRAINS[current.terrain].n,true); await wait(1000); banner("Combat !",true); sfx("ult"); await wait(800); return; }
+  if(e.kind==="round"){ banner(`Manche ${e.n}`); await wait(400); return; }
+  if(e.kind==="match"){
+    F.forEach((f,i)=>{const u=$("u"+i), on=i===e.a||i===e.b; u.classList.toggle("bench",!on); if(on){u.classList.remove("ko");setHP(i,f.maxHp,f.maxHp);}});
+    banner(e.label,true,"#FFD84A"); sfx("ult"); await wait(1600); return;
+  }
+  if(e.kind==="event"){ flash("#fff"); shake(); banner(e.name,true,"#FFD84A"); sfx("crit"); await wait(1100); return; }
+  if(e.kind==="dot"){ setHP(e.d,e.hp[e.d],F[e.d].maxHp); fx("dmg",{x:center(e.d).x,y:center(e.d).y-30},`${STATUS[e.s].i} −${e.v}`,900); sfx("hit"); await wait(380); return; }
+  if(e.kind==="skip"){ fx("txt weak",center(e.d),e.label,900); await wait(450); return; }
+  if(e.kind==="enrage"){ fx("txt counter",center(e.d),"💢 Rage !",1000); sfx("crit"); await wait(550); return; }
+  if(e.kind==="heal"){ setHP(e.d,e.hp[e.d],F[e.d].maxHp); fx("dmg heal",{x:center(e.d).x,y:center(e.d).y-30},`+${e.v}`,900); sfx("heal"); await wait(450); return; }
+  if(e.kind==="revive"){ flash("#FFD84A"); setHP(e.d,1,F[e.d].maxHp); fx("txt ko gold",center(e.d),"Immortel !",1200); sfx("win"); await wait(900); return; }
+  if(e.kind==="info"){ fx("txt counter",center(e.d),e.label||"Contré !",1000); await wait(650); return; }
+  if(e.kind==="ko"){ document.getElementById("u"+e.d).classList.add("ko"); fx("txt ko",center(e.d),"K.O.",1100); sfx("ko"); await wait(700); return; }
+  const A=F[e.a], col=ELCOL[A.element]||"#FF5FA2", ma=mover(e.a);
+  if(e.kind==="ult"){
+    flash(col); banner(e.name,true,col); ma.classList.add("cast"); ma.style.setProperty("--glow",col); sfx("ult");
+    await wait(950); ma.classList.remove("cast"); return;
+  }
+  const pa=center(e.a), pd=center(e.d), md=mover(e.d), dx=pd.x-pa.x, dy=pd.y-pa.y;
   if(e.kind==="dodge"){
     if(!rm) ma.style.transform=`translate(${dx*.55}px,${dy*.55}px)`;
     await wait(220);
     if(!rm){ md.style.transform=`translate(${dx>0?28:-28}px,-18px)`; }
-    fx("txt",pd,"Esquive !",900);
+    fx("txt",pd,"Raté !",900); sfx("dodge");
     await wait(320); ma.style.transform=""; md.style.transform=""; await wait(250); return;
   }
   // coup
-  if(e.mode==="special"){
-    $("flash").style.background=col; $("flash").className="flash on";
-    banner(A.power,true,col); ma.classList.add("cast"); ma.style.setProperty("--glow",col);
-    await wait(850); $("flash").className="flash";
-  }
-  if(e.mode==="phys"){
+  const big=e.mode==="special";
+  if(!big) banner(e.tech,false,col);
+  if(e.phys&&e.a!==e.d){
     if(!rm) ma.style.transform=`translate(${dx*.72}px,${dy*.72}px)`;
     await wait(230);
-    fx("slash"+(e.crit?" crit":""),pd,`<svg viewBox="0 0 60 60" width="70" height="70"><path d="M8 50 Q30 30 52 8" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M12 54 Q34 34 56 12" stroke="${col}" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`,450);
+    fx("slash"+(e.crit||big?" crit":""),pd,`<svg viewBox="0 0 60 60" width="70" height="70"><path d="M8 50 Q30 30 52 8" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M12 54 Q34 34 56 12" stroke="${col}" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`,450);
   } else {
     ma.classList.add("cast"); ma.style.setProperty("--glow",col);
-    const big=e.mode==="special";
     const orb=fx("orb"+(big?" big":""),pa,"",900); orb.style.background=`radial-gradient(circle, #fff 0 20%, ${col} 45%, transparent 72%)`;
     await wait(60);
     orb.style.transform=`translate(-50%,-50%) translate(${dx}px,${dy}px)`;
@@ -891,15 +1174,18 @@ async function animate(e){
     const b=fx("burst"+(big?" big":""),pd,"",600); b.style.background=`radial-gradient(circle, ${col} 0 35%, transparent 70%)`;
   }
   md.classList.remove("hurt"); void md.offsetWidth; md.classList.add("hurt");
+  if(big||e.crit) shake();
+  sfx(big||e.crit?"crit":e.phys?"hit":"mag");
   setHP(e.d,e.hp[e.d],F[e.d].maxHp);
-  fx("dmg"+(e.mode==="special"?" sp":e.crit?" crit":""),{x:pd.x,y:pd.y-30},`−${e.dmg}`,1000);
+  fx("dmg"+(big?" sp":e.crit?" crit":""),{x:pd.x,y:pd.y-30},`−${e.dmg}`,1000);
   if(e.adv) fx("txt adv",{x:pd.x,y:pd.y+40},"Super efficace",900);
   if(e.counter==="up") fx("txt counter",{x:pd.x,y:pd.y+58},"Contre !",1000);
   if(e.counter==="down") fx("txt weak",{x:pd.x,y:pd.y+58},"Résiste !",1000);
-  if(e.counter==="info" && e.notes.length) fx("txt weak",{x:pd.x,y:pd.y+58},"Contré !",1000);
-  await wait(e.mode==="special"?600:380);
+  if(e.counter==="info") fx("txt weak",{x:pd.x,y:pd.y+58},"Contré !",1000);
+  if(e.stx) fx("txt weak",{x:pd.x,y:pd.y+76},`${STATUS[e.stx].i} ${STATUS[e.stx].n}`,1100);
+  await wait(big?520:380);
   ma.style.transform=""; ma.classList.remove("cast"); $("banner").className="banner";
-  await wait(220);
+  await wait(200);
 }
 
 async function play(id){
@@ -907,32 +1193,39 @@ async function play(id){
     if(id!==runId) return;
     const e=current.ev[step++]; logLine(e);
     await animate(e);
+    if(id===runId) refresh(e);
   }
   if(id===runId) endFight();
 }
 function endFight(){
   playing=false; $("skip").disabled=true;
-  const F=current.F, last=current.ev[current.ev.length-1], wi=F.indexOf(current.winner);
-  F.forEach((f,i)=>{setHP(i,last.hp[i],f.maxHp); const u=$("u"+i); if(!u)return; u.classList.toggle("ko",last.hp[i]<=0); if(i===wi) u.classList.add("win"); const m=mover(i); m.style.transform=""; m.classList.remove("cast");});
-  banner(`${current.winner.name} gagne !`,true,cssVar("--gold"));
-  $("winner").innerHTML=`${esc(current.winner.name)} remporte le combat !`; $("winner").className="winner show";
+  const F=current.F, last=current.ev[current.ev.length-1];
+  refresh(last);
+  F.forEach((f,i)=>{const u=$("u"+i); if(!u)return; u.classList.remove("bench"); u.classList.toggle("ko",last.hp[i]<=0);
+    if(current.winners.includes(i)&&last.hp[i]>0) u.classList.add("win"); const m=mover(i); m.style.transform=""; m.classList.remove("cast");});
+  banner(current.winText,true,cssVar("--gold")); sfx("win");
+  const rows=F.map(f=>f).sort((x,y)=>y.dealt-x.dealt);
+  $("winner").innerHTML=`${esc(current.winText)}<div class="stats"><div class="st-row h"><span>Combattant</span><span>Dégâts</span><span>K.O.</span><span>Meilleur coup</span></div>`
+    +rows.map((f,i)=>`<div class="st-row"><span>${esc(f.name)}${i===0&&f.dealt>0?`<span class="mvp">MVP</span>`:""}</span><span>${f.dealt}</span><span>${f.kos}</span><span>${f.best}</span></div>`).join("")+`</div>`;
+  $("winner").className="winner show";
   updateArena();
 }
 $("fight").addEventListener("click",()=>{
   if(!arenaReady()||playing) return;
-  if(net.on&&!net.host){net.hostConn.send({t:"fightReq"});return;}
-  hostFight();
+  if(net.on&&!net.host){net.hostConn.send({t:"fightReq",mode:fightMode});return;}
+  hostFight(fightMode);
 });
-function hostFight(){
+function hostFight(mode){
+  if(MODES[mode]&&!playing) fightMode=mode;
   if(!arenaReady()||playing) return;
-  const cur=battle(players,true);
-  broadcast({t:"fight",ev:cur.ev,F:cur.F.map(f=>Object.assign({},f,{tags:[...f.tags]})),w:cur.F.indexOf(cur.winner)});
+  const cur=battle(players,true,fightMode);
+  broadcast({t:"fight",cur:Object.assign({},cur,{F:cur.F.map(f=>Object.assign({},f,{tags:[...f.tags]}))})});
   startFight(cur);
 }
 function startFight(cur){
   current=cur; step=0; playing=true; runId++;
   $("log").innerHTML=""; $("log").hidden=false; $("winner").className="winner"; $("winrates").innerHTML="";
-  layout(current.F); $("skip").disabled=false; updateArena();
+  layout(cur); $("skip").disabled=false; updateArena();
   $("stage").scrollIntoView({behavior:reduceMotion()?"auto":"smooth",block:"center"});
   play(runId);
 }
@@ -944,13 +1237,25 @@ $("skip").addEventListener("click",()=>{
 $("speed").addEventListener("click",()=>{speed = speed===1?2:speed===2?3:1; $("speed").textContent=`Vitesse ×${speed}`; $("stage").style.setProperty("--spd",speed);});
 $("sim").addEventListener("click",()=>{
   if(!arenaReady()||playing) return;
-  const N=200, wins=players.map(()=>0);
-  for(let k=0;k<N;k++){const r=battle(players,false); wins[r.F.indexOf(r.winner)]++;}
-  const rows=players.map((p,i)=>({name:p.name,w:wins[i]})).sort((a,b)=>b.w-a.w);
-  $("winrates").innerHTML=`<h2 style="margin-top:16px">Sur ${N} combats</h2>`+rows.map((r,i)=>
+  const N=200, tally={};
+  if(fightMode==="melee"||fightMode==="tournoi") players.forEach(p=>tally[p.name]=0);
+  for(let k=0;k<N;k++){const r=battle(players,false,fightMode); tally[r.winLabel]=(tally[r.winLabel]||0)+1;}
+  const rows=Object.entries(tally).map(([name,w])=>({name,w})).sort((a,b)=>b.w-a.w);
+  $("winrates").innerHTML=`<h2 style="margin-top:16px">Sur ${N} combats · ${esc(MODES[fightMode].n)}</h2>`+rows.map((r,i)=>
     `<div class="wr-row"><span style="font-weight:${i===0?900:400}">${esc(r.name)}</span><div class="bar"><i style="width:${r.w/N*100}%;background:${i===0?cssVar("--gold"):cssVar("--sakura")}"></i></div><span style="text-align:right">${(r.w/N*100).toFixed(0)} %</span></div>`).join("")
-    +`<p class="sub" style="margin-top:8px">${esc(rows[0].name)} est le plus puissant : il gagne ${(rows[0].w/N*100).toFixed(0)} % des combats.</p>`;
+    +`<p class="sub" style="margin-top:8px">${esc(rows[0].name)} gagne ${(rows[0].w/N*100).toFixed(0)} % des combats dans ce mode.</p>`;
 });
+function renderRules(){
+  const src={}; STATUS_SRC.forEach(r=>{(src[r.s]=src[r.s]||[]).push(r.tag);});
+  const eff={burn:"5 % des PV par manche",poison:"4 % des PV par manche",bleed:"4 % des PV par manche",freeze:"passe son prochain tour",stun:"passe son prochain tour",blind:"40 % de chances de rater",curse:"−25 % de dégâts infligés"};
+  $("rulesBody").innerHTML=
+    `<p><span class="lab">Techniques :</span> chaque arme et chaque magie a ses propres attaques (un katana fait un Iaido éclair, le feu lance une Boule de feu…).</p>`
+   +`<p><span class="lab l-sp">Ultime :</span> la jauge jaune sous les PV monte quand on frappe ou qu'on encaisse. Pleine, le perso déchaîne l'ultime de son pouvoir spécial. Plus le pouvoir est rare, plus elle monte vite et plus l'ultime fait mal.</p>`
+   +`<p><span class="lab">États :</span> ${Object.keys(eff).map(k=>`${STATUS[k].i} ${STATUS[k].n} (${eff[k]} ; causé par ${esc(src[k].join(", "))})`).join(" · ")}.</p>`
+   +`<p><span class="lab">Rage :</span> sous 25 % de PV, un perso gagne +30 % de dégâts. <span class="lab">Soin :</span> la Magie de soin soigne le perso ou ses alliés.</p>`
+   +`<p><span class="lab">Terrains :</span> ${TERRAINS.map(t=>`${esc(t.n)} (${t.t||`+ ${t.up.join(", ")} / − ${t.down.join(", ")}`})`).join(" · ")}.</p>`
+   +`<p><span class="lab">Événements :</span> ${EVENTS.map(x=>x[0]).join(", ")} peuvent surgir à chaque manche. À la manche 15, c'est la Mort subite : les dégâts augmentent sans arrêt.</p>`;
+}
 
 /* ---------- Guide des counters ---------- */
 function relations(label){
@@ -1043,7 +1348,7 @@ function createRoom(){
 function hostMsg(c,m){
   if(!m||c.seat<0) return;
   if(m.t==="spinReq"){ if(!spinning&&!finished()&&c.seat===pIdx&&tot(groups[gIdx])>0) hostSpin(); }
-  else if(m.t==="fightReq") hostFight();
+  else if(m.t==="fightReq") hostFight(m.mode);
   else if(m.t==="name"){ setName(c.seat,m.name); if(players[c.seat]) broadcast({t:"name",i:c.seat,name:players[c.seat].name}); }
 }
 function joinRoom(code){
@@ -1072,7 +1377,7 @@ function guestMsg(m){
   });
   else if(m.t==="name") setName(m.i,m.name);
   else if(m.t==="spin") whenIdle(()=>{pIdx=m.p;gIdx=m.g;draw();startSpin(m.oi,m.target);});
-  else if(m.t==="fight"){ const F=m.F.map(f=>Object.assign({},f,{tags:new Set(f.tags)})); startFight({F,ev:m.ev,winner:F[m.w]}); }
+  else if(m.t==="fight"){ const c=m.cur; c.F=c.F.map(f=>Object.assign({},f,{tags:new Set(f.tags)})); fightMode=c.mode; startFight(c); }
   else if(m.t==="full") netStatus("La salle est pleine (8 joueurs).");
 }
 $("netCreate").addEventListener("click",createRoom);
@@ -1087,7 +1392,7 @@ $("netCopy").addEventListener("click",()=>{
 const mq=matchMedia("(prefers-color-scheme: dark)");
 mq.addEventListener&&mq.addEventListener("change",()=>{draw();render();});
 document.fonts&&document.fonts.ready.then(draw);
-renderEditor();buildPlayers();draw();updateArena();renderGuide();
+renderEditor();buildPlayers();draw();updateArena();renderGuide();renderRules();
 {const q=new URLSearchParams(location.search).get("salle"); if(q) joinRoom(q);}
 </script>
 </body>
