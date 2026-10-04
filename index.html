@@ -190,6 +190,17 @@ summary{cursor:pointer;font-weight:900}
 @keyframes shake2{20%{transform:translate(-6px,3px)}40%{transform:translate(6px,-3px)}60%{transform:translate(-4px,-2px)}80%{transform:translate(4px,2px)}}
 @media (prefers-reduced-motion:reduce){.stage.shake{animation:none}}
 #modes{margin:0 0 8px}
+.elmap{margin-top:20px}
+.elmap-grid{display:grid;grid-template-columns:1fr;gap:16px;align-items:center}
+@media (min-width:760px){.elmap-grid{grid-template-columns:minmax(0,440px) 1fr}}
+#mapSvg{width:100%;max-width:440px;display:block;margin:0 auto}
+#mapSvg g[data-el]{cursor:pointer}
+#mapSvg g[data-el]:focus-visible circle{stroke:var(--sakura);stroke-width:5}
+#mapSvg text{font:900 12px "Zen Kaku Gothic New",sans-serif;fill:#fff;stroke:#1B1035;stroke-width:3px;paint-order:stroke;text-anchor:middle;pointer-events:none}
+#mapInfo h3{font-family:"Dela Gothic One",sans-serif;font-weight:400;font-size:1.3rem;margin:0 0 8px}
+#mapInfo p{margin:6px 0;font-size:.95rem}
+#mapInfo ul{margin:2px 0 8px;padding-left:18px;font-size:.95rem}
+.key{display:inline-block;width:22px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px}
 .stats{font-family:"Zen Kaku Gothic New",sans-serif;font-size:.9rem;line-height:1.4;margin:10px auto 0;max-width:540px;text-align:left}
 .st-row{display:grid;grid-template-columns:1fr 64px 44px 84px;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);align-items:baseline}
 .st-row span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
@@ -279,6 +290,15 @@ body.guest #editor{display:none}
     <div id="winrates"></div>
     <details id="rules"><summary>Règles du combat</summary><div id="rulesBody"></div></details>
 
+  </section>
+
+  <section class="box elmap" id="elmap">
+    <h2>Carte des éléments</h2>
+    <p class="sub" style="margin:0 0 12px">Comme pierre-feuille-ciseaux : une flèche va de l'élément qui gagne vers celui qui perd. Chaque élément du cercle en bat deux et se fait battre par deux ; les quatre du centre forment une boucle. Touche un élément pour voir ses flèches et pourquoi.</p>
+    <div class="elmap-grid">
+      <div id="mapSvg"></div>
+      <div id="mapInfo" aria-live="polite"></div>
+    </div>
   </section>
 
   <section class="box guide" id="guide">
@@ -430,6 +450,7 @@ function render(){
     $("spin").textContent="Terminé";$("spin").disabled=true;
   }
   if(typeof updateArena==="function") updateArena();
+  renderMap();
   $("cards").innerHTML=players.map((p,i)=>{
     const pts=points(p), done=groups.every((_,j)=>p.res[j]);
     const r=rank(pts);
@@ -703,9 +724,24 @@ function avatarSVG(p,size){
 
 /* ---------- Arène ---------- */
 const KNOWN=["race","force","magie","élément","pouvoir spécial","arme"];
-const BEATS={"Feu":["Plante","Glace","Métal"],"Eau":["Feu","Sable","Terre"],"Plante":["Eau","Terre"],"Terre":["Foudre","Poison","Métal"],
- "Glace":["Vent","Plante"],"Foudre":["Eau","Vent"],"Vent":["Plante","Sable"],"Métal":["Glace","Terre"],"Poison":["Plante","Eau"],
- "Sable":["Foudre","Feu"],"Ombre":["Lumière"],"Lumière":["Ombre","Néant"],"Néant":["Cosmos"],"Cosmos":["Néant","Ombre","Lumière"]};
+// Éléments naturels : chacun en bat 2 et se fait battre par 2. Éléments mystiques : un cycle de 4.
+const BEATS={"Feu":["Plante","Glace"],"Eau":["Feu","Terre"],"Plante":["Terre","Sable"],"Terre":["Foudre","Poison"],
+ "Foudre":["Eau","Vent"],"Vent":["Sable","Feu"],"Glace":["Vent","Poison"],"Métal":["Glace","Plante"],
+ "Poison":["Eau","Métal"],"Sable":["Foudre","Métal"],
+ "Lumière":["Ombre"],"Ombre":["Cosmos"],"Cosmos":["Néant"],"Néant":["Lumière"]};
+const WHY={"Feu>Plante":"le feu brûle les plantes","Feu>Glace":"le feu fait fondre la glace",
+ "Eau>Feu":"l'eau éteint le feu","Eau>Terre":"l'eau érode la terre",
+ "Plante>Terre":"les racines fendent la terre","Plante>Sable":"les racines retiennent le sable",
+ "Terre>Foudre":"la terre absorbe la foudre","Terre>Poison":"la terre ensevelit le poison",
+ "Foudre>Eau":"l'eau conduit l'électricité","Foudre>Vent":"la foudre déchire le ciel",
+ "Vent>Sable":"le vent disperse le sable","Vent>Feu":"le vent souffle les flammes",
+ "Glace>Vent":"le froid fige l'air","Glace>Poison":"le gel neutralise le venin",
+ "Métal>Glace":"le métal brise la glace","Métal>Plante":"la lame tranche les plantes",
+ "Poison>Eau":"le poison contamine l'eau","Poison>Métal":"le poison corrode le métal",
+ "Sable>Foudre":"le sable isole de la foudre","Sable>Métal":"le sable enraye le métal",
+ "Lumière>Ombre":"la lumière dissipe l'ombre","Ombre>Cosmos":"l'ombre voile les étoiles",
+ "Cosmos>Néant":"le cosmos remplit le vide","Néant>Lumière":"le néant engloutit la lumière"};
+const RING=["Feu","Plante","Terre","Foudre","Eau","Poison","Métal","Glace","Vent","Sable"], CORE=["Lumière","Ombre","Cosmos","Néant"];
 function statsOf(p){
   const res=n=>{const j=groups.findIndex(g=>g.name.toLowerCase()===n);return j>=0?p.res[j]:null;};
   const pt=n=>Number(res(n)?.pts)||0;
@@ -924,7 +960,7 @@ function battle(players, withLog, mode){
     if(crit) dmg*=1.5;
     let txt = o.txt || (o.special ? `${A.name} déchaîne ${tech.toUpperCase()} sur ${D.name}` : useMag ? `${A.name} lance ${tech} sur ${D.name}` : `${A.name} utilise ${tech} sur ${D.name}`);
     if(crit) txt+=" (coup critique)";
-    if(A.element && (BEATS[A.element]||[]).includes(D.element)){ dmg*=1.3; adv=true; txt+=` · ${A.element} bat ${D.element}`; }
+    if(A.element && (BEATS[A.element]||[]).includes(D.element)){ dmg*=1.3; adv=true; txt+=` · ${A.element} bat ${D.element}`; if(WHY[A.element+">"+D.element]) notes.push(WHY[A.element+">"+D.element]); }
     if(terrain.up.includes(A.element)){ dmg*=1.2; notes.push(`${terrain.n} renforce ${A.element}`); }
     else if(terrain.down.includes(A.element)){ dmg*=.85; notes.push(`${terrain.n} affaiblit ${A.element}`); }
     const cm=counterMult(A,D,mode); dmg*=cm.m; notes=notes.concat(cm.notes);
@@ -1274,6 +1310,50 @@ function relations(label){
   });
   return r;
 }
+/* ---------- Carte des éléments ---------- */
+let mapSel=null;
+function mapPos(){
+  const P={}, c=260;
+  RING.forEach((e,i)=>{const a=-Math.PI/2+i*2*Math.PI/RING.length; P[e]={x:c+205*Math.cos(a),y:c+205*Math.sin(a)};});
+  CORE.forEach((e,i)=>{const a=-Math.PI/2+i*2*Math.PI/CORE.length; P[e]={x:c+78*Math.cos(a),y:c+78*Math.sin(a)};});
+  return P;
+}
+function renderMap(){
+  const P=mapPos(), R=27, owners={};
+  players.forEach(p=>{const e=resBy(p,"élément"); if(e&&P[e]) (owners[e]=owners[e]||[]).push(p.name);});
+  if(!mapSel||!P[mapSel]) mapSel=Object.keys(owners)[0]||"Feu";
+  const GREEN="#2E9E57", RED="#D93A2B";
+  let faint="", strong="";
+  Object.entries(BEATS).forEach(([w,list])=>list.forEach(l=>{
+    if(!P[w]||!P[l]) return;
+    const A=P[w], B=P[l], d=Math.hypot(B.x-A.x,B.y-A.y), ux=(B.x-A.x)/d, uy=(B.y-A.y)/d;
+    const x1=A.x+ux*(R+3), y1=A.y+uy*(R+3), x2=B.x-ux*(R+10), y2=B.y-uy*(R+10);
+    const on = w===mapSel ? "g" : l===mapSel ? "r" : "";
+    const line=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" `;
+    if(on) strong+=line+`stroke="${on==="g"?GREEN:RED}" stroke-width="5" stroke-linecap="round" marker-end="url(#mk-${on})"/>`;
+    else faint+=line+`stroke="var(--muted)" stroke-width="1.5" opacity=".3" marker-end="url(#mk-n)"/>`;
+  }));
+  const mk=(id,col,op)=>`<marker id="mk-${id}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="${id==="n"?7:4.5}" markerHeight="${id==="n"?7:4.5}" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${col}"${op?` opacity="${op}"`:""}/></marker>`;
+  const nodes=Object.keys(P).map(e=>{
+    const sel=e===mapSel, dim=!sel&&!(BEATS[mapSel]||[]).includes(e)&&!(BEATS[e]||[]).includes(mapSel);
+    return `<g data-el="${esc(e)}" role="button" tabindex="0" aria-label="${esc(e)}" aria-pressed="${sel}" opacity="${dim?.65:1}">`
+      +(owners[e]?`<circle cx="${P[e].x}" cy="${P[e].y}" r="${R+6}" fill="none" stroke="var(--gold)" stroke-width="3" stroke-dasharray="4 4"/>`:"")
+      +`<circle cx="${P[e].x}" cy="${P[e].y}" r="${R}" fill="${ELCOL[e]||"#888"}" stroke="${sel?"var(--ink)":"rgba(255,255,255,.7)"}" stroke-width="${sel?5:2}"/>`
+      +`<text x="${P[e].x}" y="${P[e].y+4}">${esc(e)}</text></g>`;
+  }).join("");
+  $("mapSvg").innerHTML=`<svg viewBox="0 0 520 520" role="group" aria-label="Carte des éléments"><defs>${mk("n","var(--muted)",.5)}${mk("g",GREEN)}${mk("r",RED)}</defs>${faint}${strong}${nodes}</svg>`;
+  const why=(w,l)=>`<li><b>${esc(l===mapSel?w:l)}</b> : ${esc(WHY[w+">"+l]||"")}</li>`;
+  const wins=(BEATS[mapSel]||[]).filter(l=>P[l]), loses=Object.keys(BEATS).filter(w=>P[w]&&BEATS[w].includes(mapSel));
+  $("mapInfo").innerHTML=`<h3 style="color:${ELCOL[mapSel]}">${esc(mapSel)}</h3>`
+    +`<p><span class="key" style="background:${GREEN}"></span><span class="lab l-up">Bat :</span></p><ul>${wins.map(l=>why(mapSel,l)).join("")}</ul>`
+    +`<p><span class="key" style="background:${RED}"></span><span class="lab l-down">Se fait battre par :</span></p><ul>${loses.map(w=>why(w,mapSel)).join("")}</ul>`
+    +`<p class="sub" style="margin:0">Quand un élément en bat un autre, ses attaques font ×1,3 de dégâts.${Object.keys(owners).length?" Les éléments entourés en pointillés sont ceux des joueurs.":""}</p>`
+    +(owners[mapSel]?`<p><span class="lab">Perso${owners[mapSel].length>1?"s":""} avec cet élément :</span> ${esc(owners[mapSel].join(", "))}</p>`:"");
+}
+function mapPick(e){const g=e.target.closest("g[data-el]"); if(!g) return; mapSel=g.dataset.el; renderMap(); const f=$("mapSvg").querySelector('g[aria-pressed="true"]'); if(f&&e.type==="keydown") f.focus();}
+$("mapSvg").addEventListener("click",mapPick);
+$("mapSvg").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();mapPick(e);}});
+
 function relEmpty(r){return !r.up.length&&!r.down.length&&!r.res.length&&!r.weak.length&&!r.sp;}
 let guideTab=0;
 function renderGuide(){
