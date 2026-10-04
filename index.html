@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Créateur de perso – Roues</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{
+  --bg:#F3EEFF; --panel:#FFFFFF; --ink:#1B1035; --muted:#6B5F86; --line:#DCD2F2;
+  --sakura:#E63E86; --gold:#C98A00; --rare:#2F7BE0; --epic:#8A3FE0; --common:#6E7B8C;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#140C2B; --panel:#1F1542; --ink:#F4EEFF; --muted:#A99BCB; --line:#352A5E;
+    --sakura:#FF5FA2; --gold:#FFC83D; --rare:#4FA3FF; --epic:#B57BFF; --common:#9AA7B8;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#140C2B; --panel:#1F1542; --ink:#F4EEFF; --muted:#A99BCB; --line:#352A5E;
+  --sakura:#FF5FA2; --gold:#FFC83D; --rare:#4FA3FF; --epic:#B57BFF; --common:#9AA7B8;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Zen Kaku Gothic New",system-ui,sans-serif;line-height:1.5}
+main{max-width:1040px;margin:0 auto;padding:20px 16px 48px}
+h1{font-family:"Dela Gothic One","Zen Kaku Gothic New",sans-serif;font-weight:400;font-size:clamp(2rem,7vw,3.2rem);line-height:1;margin:8px 0 6px}
+.sub{color:var(--muted);margin:0 0 20px;max-width:62ch}
+.grid{display:grid;grid-template-columns:1fr;gap:20px}
+@media (min-width:860px){.grid{grid-template-columns:1.05fr .95fr}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px}
+h2{font-family:"Dela Gothic One",sans-serif;font-weight:400;font-size:1.25rem;margin:0 0 12px}
+label{font-weight:700;font-size:.95rem}
+input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;width:100%;min-width:0}
+input:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid var(--sakura);outline-offset:2px}
+.row{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.row label{min-width:80px}
+button{font:inherit;font-weight:900;cursor:pointer;border:none;border-radius:999px;padding:12px 22px;background:var(--sakura);color:#fff}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:700;padding:8px 14px}
+button.small{padding:6px 12px;font-size:.85rem}
+button.x{background:transparent;color:var(--muted);border:1px solid var(--line);padding:4px 10px;font-weight:700}
+button:disabled{opacity:.45;cursor:not-allowed}
+
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.step{font-size:.82rem;font-weight:700;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.step.done{color:var(--ink);background:var(--bg)}
+.step.now{border-color:var(--sakura);color:var(--sakura)}
+
+.wheel-title{text-align:center;font-family:"Dela Gothic One",sans-serif;font-size:1.5rem;margin:0 0 10px}
+.wheel-wrap{position:relative;width:min(100%,420px);aspect-ratio:1;margin:0 auto}
+#wheel{width:100%;height:100%;display:block;border-radius:50%;transition:transform 5s cubic-bezier(.12,.75,.12,1)}
+#wheel.instant{transition:none}
+.pointer{position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:30px solid var(--ink);z-index:2}
+.hub{position:absolute;inset:0;margin:auto;width:24%;height:24%;border-radius:50%;background:var(--panel);border:4px solid var(--ink);display:grid;place-items:center;font-family:"Dela Gothic One",sans-serif;font-size:clamp(.7rem,2.6vw,1rem);text-align:center;line-height:1.05;padding:4px;z-index:1;overflow:hidden}
+.turn{text-align:center;margin:16px 0 8px}
+.turn strong{font-family:"Dela Gothic One",sans-serif;font-weight:400;font-size:1.25rem}
+.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+
+.reveal{margin-top:14px;border-radius:14px;padding:12px 14px;border:2px solid var(--line);text-align:center;display:none}
+.reveal.show{display:block;animation:pop .35s ease-out}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:none;opacity:1}}
+.reveal .val{font-family:"Dela Gothic One",sans-serif;font-size:1.6rem;line-height:1.1}
+.tag{display:inline-block;font-weight:900;font-size:.78rem;padding:2px 10px;border-radius:999px;color:#fff;margin-top:4px}
+
+.card{border:2px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.card-body{display:flex;gap:12px;align-items:flex-start}.card-body svg{flex:none;background:var(--bg);border-radius:12px}.card-body .attrs{flex:1}
+.reveal svg{display:block;margin:0 auto 6px}
+.fighter svg{float:left;margin:0 10px 0 0;background:var(--bg);border-radius:10px}
+.card-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
+.card-head b{font-family:"Dela Gothic One",sans-serif;font-weight:400;font-size:1.15rem}
+.rank{font-family:"Dela Gothic One",sans-serif;font-size:1.4rem;line-height:1}
+.attrs{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;font-size:.92rem}
+.attrs .k{color:var(--muted)}
+.attrs .p{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.attrs .pending{color:var(--muted);font-style:italic}
+.total{margin-top:6px;font-weight:900;text-align:right}
+
+details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+summary{cursor:pointer;font-weight:900}
+.group{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:12px}
+.group-head{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.group-head input{font-weight:900}
+.opt{display:grid;grid-template-columns:1fr 70px 70px auto;gap:6px;align-items:center;margin-bottom:6px}
+.opt-h{display:grid;grid-template-columns:1fr 70px 70px auto;gap:6px;font-size:.75rem;color:var(--muted);margin-bottom:4px}
+.opt-h span:last-child{width:34px}
+.pct{font-size:.78rem;color:var(--muted)}
+.legend{font-size:.85rem;color:var(--muted);margin-top:10px}
+.legend span{font-weight:900}
+
+.arena{margin-top:20px}
+.arena-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.fighters{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.fighter{border:2px solid var(--line);border-radius:14px;padding:10px 12px;transition:opacity .3s}
+.fighter.dead{opacity:.4}
+.fighter.hit{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.fighter .nm{font-family:"Dela Gothic One",sans-serif;font-size:1.05rem}
+.fighter .meta{font-size:.8rem;color:var(--muted)}
+.bar{height:10px;border-radius:999px;background:var(--bg);overflow:hidden;margin:6px 0 2px}
+.bar i{display:block;height:100%;background:var(--sakura);transition:width .35s}
+.fighter .st{clear:both;font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.log{margin-top:12px;max-height:260px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:.92rem;background:var(--bg)}
+.log p{margin:3px 0}
+.log .big{font-weight:900;color:var(--sakura)}
+.log .ko{font-weight:900}
+.winner{margin-top:12px;text-align:center;font-family:"Dela Gothic One",sans-serif;font-size:1.5rem;display:none}
+.winner.show{display:block;animation:pop .4s ease-out}
+.wr-row{display:grid;grid-template-columns:120px 1fr 56px;gap:10px;align-items:center;margin:6px 0;font-size:.92rem}
+.wr-row .bar{margin:0;height:14px}
+@media (prefers-reduced-motion:reduce){.fighter.hit{animation:none}.bar i{transition:none}}
+
+.stage{--spd:1;position:relative;height:clamp(320px,52vw,440px);border-radius:16px;overflow:hidden;margin-top:6px;
+  background:linear-gradient(180deg,#2A1B5C 0%,#5B3A8C 52%,#3B2A5E 52.5%,#2A1F45 100%)}
+.stage::before{content:"";position:absolute;left:8%;right:8%;top:56%;bottom:6%;border-radius:50%;border:2px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04)}
+.unit{position:absolute;transform:translate(-50%,-50%);text-align:center;width:110px}
+.mover{transition:transform calc(220ms / var(--spd)) ease-out}
+.uname{font-size:.75rem;font-weight:900;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hpbar{height:7px;border-radius:999px;background:rgba(0,0,0,.45);overflow:hidden;margin:2px 10px 2px}
+.hpbar i{display:block;height:100%;width:100%;background:#3FBF6A;transition:width .35s}
+.sprite{display:inline-block}
+.sprite.flip svg{transform:scaleX(-1)}
+.unit.ko .mover{transform:translateY(16px) rotate(80deg)!important;opacity:.35;transition:all .5s}
+.unit.win .sprite{animation:jump .6s ease-in-out infinite alternate}
+@keyframes jump{to{transform:translateY(-12px)}}
+.mover.hurt .sprite{animation:hurt calc(320ms / var(--spd))}
+@keyframes hurt{0%,100%{transform:none;filter:none}25%{transform:translateX(-6px);filter:brightness(2.2)}75%{transform:translateX(6px)}}
+.mover.cast .sprite{filter:drop-shadow(0 0 10px var(--glow,#fff)) drop-shadow(0 0 4px var(--glow,#fff))}
+.fx{position:absolute;transform:translate(-50%,-50%);pointer-events:none;z-index:200}
+.fx.dmg{font-family:"Dela Gothic One",sans-serif;font-size:1.5rem;color:#fff;-webkit-text-stroke:1.5px #8B0F2A;animation:up 1s ease-out forwards}
+.fx.dmg.crit{color:#FFD84A;font-size:1.8rem}
+.fx.dmg.sp{color:#FFD84A;font-size:2.3rem;-webkit-text-stroke:2px #5A1A00}
+@keyframes up{0%{opacity:0;margin-top:10px}15%{opacity:1}100%{opacity:0;margin-top:-46px}}
+.fx.txt{font-weight:900;color:#fff;text-shadow:0 2px 3px #000;font-size:1rem;animation:up .9s ease-out forwards;white-space:nowrap}
+.fx.txt.ko{font-family:"Dela Gothic One",sans-serif;font-size:1.6rem;color:#FF5F5F}
+.fx.txt.adv{color:#7DF0B0;font-size:.85rem}
+.fx.slash{animation:slash .45s ease-out forwards}
+.fx.slash.crit svg{transform:scale(1.5)}
+@keyframes slash{0%{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(-20deg)}30%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.2) rotate(10deg)}}
+.fx.orb{width:30px;height:30px;border-radius:50%;transition:transform calc(360ms / var(--spd)) ease-in}
+.fx.orb.big{width:64px;height:64px}
+.fx.burst{width:40px;height:40px;border-radius:50%;animation:burst .6s ease-out forwards}
+.fx.burst.big{width:70px;height:70px}
+@keyframes burst{from{transform:translate(-50%,-50%) scale(.3);opacity:1}to{transform:translate(-50%,-50%) scale(2.4);opacity:0}}
+.banner{position:absolute;left:0;right:0;top:12px;text-align:center;font-family:"Dela Gothic One",sans-serif;color:#fff;font-size:1rem;opacity:0;transition:opacity .2s;text-shadow:0 2px 4px #000;z-index:300;pointer-events:none}
+.banner.show{opacity:1}
+.banner.big{font-size:clamp(1.4rem,5vw,2.2rem);top:38%}
+.banner.big.show{animation:pop .35s ease-out}
+.flash{position:absolute;inset:0;opacity:0;pointer-events:none;z-index:250}
+.flash.on{animation:flash .85s ease-out}
+@keyframes flash{0%{opacity:0}20%{opacity:.55}100%{opacity:0}}
+.log{max-height:200px}
+@media (prefers-reduced-motion:reduce){.unit.win .sprite,.mover.hurt .sprite,.flash.on{animation:none}.fx.orb{transition:none}}
+
+#matchups p{margin:3px 0;font-size:.9rem;padding-left:10px;border-left:3px solid var(--line)}
+#matchups .mu-up{border-color:#3FBF6A}
+#matchups .mu-down{border-color:#E8452C}
+.counter-list p{margin:4px 0;font-size:.9rem}
+.counter-list b{font-weight:900}
+.fx.dmg.heal{color:#7DF0B0;-webkit-text-stroke:1.5px #0F5A2A}
+.fx.txt.counter{color:#FFD84A;font-family:"Dela Gothic One",sans-serif;font-size:1.05rem}
+.fx.txt.weak{color:#9FE3F5;font-size:.9rem}
+.fx.txt.gold{color:#FFD84A}
+
+.guide{margin-top:20px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.tabs button{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:700;padding:7px 14px}
+.tabs button[aria-selected="true"]{background:var(--sakura);border-color:var(--sakura);color:#fff}
+.gitem{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.gitem h3{margin:0 0 4px;font-family:"Dela Gothic One",sans-serif;font-weight:400;font-size:1.05rem}
+.gitem p{margin:2px 0;font-size:.9rem}
+.lab{font-weight:900}
+.l-up{color:#2E9E57}.l-down{color:#D93A2B}.l-res{color:var(--rare)}.l-sp{color:var(--epic)}
+:root[data-theme="dark"] .l-up,:root:not([data-theme="light"]) .l-up{}
+.cmini{margin-top:8px;font-size:.82rem;line-height:1.45}
+.cmini p{margin:2px 0}
+[hidden]{display:none!important}
+.online{margin-bottom:20px}
+.online .actions{justify-content:flex-start}
+.online #netCode{width:110px;text-transform:uppercase}
+.online .row{margin:8px 0 0}
+body.guest #editor{display:none}
+@media (prefers-reduced-motion:reduce){#wheel{transition-duration:.01s}.reveal.show{animation:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Créateur de perso</h1>
+  <p class="sub">Chaque joueur construit son personnage roue par roue : race, force, magie, élément, pouvoir spécial, arme. Plus un résultat est rare, plus il rapporte de points. Tu peux créer tes propres groupes en bas.</p>
+
+  <section class="box online" id="online">
+    <h2>Jouer en ligne</h2>
+    <p class="sub" style="margin:0 0 12px">Crée une salle et envoie le lien à tes amis : chacun tourne les roues de son perso depuis son propre écran. Sans salle, on joue à plusieurs sur le même écran.</p>
+    <div class="actions" id="netStart">
+      <button id="netCreate">Créer une salle</button>
+      <input type="text" id="netCode" maxlength="5" placeholder="Code" aria-label="Code de la salle">
+      <button class="ghost" id="netJoin">Rejoindre</button>
+    </div>
+    <div id="netRoom" hidden>
+      <p style="margin:0">Salle <b id="netRoomCode"></b> · <span id="netStatus" aria-live="polite"></span></p>
+      <div class="row"><input type="text" id="netLink" readonly aria-label="Lien de la salle"><button class="ghost small" id="netCopy">Copier le lien</button></div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="box">
+      <div class="steps" id="steps"></div>
+      <p class="wheel-title" id="wheelTitle"></p>
+      <div class="wheel-wrap">
+        <div class="pointer" aria-hidden="true"></div>
+        <canvas id="wheel" width="840" height="840" role="img" aria-label="Roue"></canvas>
+        <div class="hub" id="hub">Tourne !</div>
+      </div>
+      <p class="turn" id="turn"></p>
+      <div class="actions">
+        <button id="spin">Tourner la roue</button>
+        <button class="ghost" id="reset">Recommencer la partie</button>
+      </div>
+      <div class="reveal" id="reveal" aria-live="polite"></div>
+    </section>
+
+    <section class="box">
+      <h2>Joueurs</h2>
+      <div class="row"><label for="nb">Nombre</label><input type="number" id="nb" min="1" max="8" value="2"></div>
+      <div id="names"></div>
+      <h2 style="margin-top:16px">Fiches</h2>
+      <div id="cards"></div>
+      <p class="legend">Rang selon les points : <span>S</span> 200+ · <span>A</span> 140+ · <span>B</span> 100+ · <span>C</span> 70+ · <span>D</span> en dessous.</p>
+
+      <details id="editor">
+        <summary>Modifier les groupes et les chances</summary>
+        <p class="sub" style="margin:8px 0 0">« Chance » = poids sur la roue (plus c'est grand, plus ça sort). « Points » = ce que ça rapporte. Modifier les groupes remet la partie à zéro.</p>
+        <div id="groups"></div>
+        <div class="actions" style="justify-content:flex-start;margin-top:12px">
+          <button class="small" id="addGroup">Ajouter un groupe</button>
+          <button class="ghost small" id="restore">Remettre les groupes de base</button>
+        </div>
+      </details>
+    </section>
+  </div>
+  <section class="box arena" id="arena">
+    <div class="arena-top">
+      <h2 style="margin:0">Arène : combat entre tous les joueurs</h2>
+      <div class="actions">
+        <button id="fight">Lancer le combat</button>
+        <button class="ghost" id="skip" disabled>Voir la fin</button>
+        <button class="ghost" id="speed">Vitesse ×1</button>
+        <button class="ghost" id="sim">Simuler 200 combats</button>
+      </div>
+    </div>
+    <p class="sub" id="arenaHint" style="margin:0 0 10px"></p>
+    <div id="matchups"></div>
+    <div class="stage" id="stage" hidden></div>
+    <div class="winner" id="winner"></div>
+    <div class="log" id="log" aria-live="polite" hidden></div>
+    <div id="winrates"></div>
+
+  </section>
+
+  <section class="box guide" id="guide">
+    <h2>Guide des counters</h2>
+    <p class="sub" style="margin:0 0 10px">Choisis une catégorie pour voir contre quoi chaque option est forte ou faible.</p>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div id="guideList"></div>
+  </section>
+</main>
+
+<script>
+const DEFAULT_GROUPS = [
+  {name:"Race", options:[
+    ["Humain",16,10],["Homme-bête",12,10],["Nain",9,12],["Elfe",9,15],["Homme-poisson",8,15],
+    ["Orc",8,12],["Cyborg",7,15],["Homme-oiseau",6,15],["Vampire",5,22],["Démon",4,25],
+    ["Géant",4,25],["Dragonien",3,30],["Ange",3,30],["Homme-ombre",2,35],["Esprit",2,40],["Dieu déchu",1,60]]},
+  {name:"Force", options:[
+    ["Très faible",12,0],["Faible",16,5],["Normale",18,10],["Solide",15,15],["Forte",12,20],
+    ["Très forte",10,28],["Surhumaine",8,36],["Monstrueuse",5,45],["Titanesque",3,55],["Divine",1,75]]},
+  {name:"Magie", options:[
+    ["Aucune magie",12,0],["Magie élémentaire",12,10],["Magie de soin",10,10],["Barrières",9,12],
+    ["Télékinésie",8,15],["Illusion",8,15],["Invocation",7,18],["Magie des runes",7,18],
+    ["Malédictions",6,20],["Magie du sang",5,25],["Nécromancie",4,28],["Gravité",4,30],
+    ["Magie spatiale",3,35],["Magie des étoiles",2,40],["Magie du temps",2,45],["Magie du chaos",1,60]]},
+  {name:"Élément", options:[
+    ["Feu",12,5],["Eau",12,5],["Vent",11,5],["Terre",11,5],["Glace",9,8],["Foudre",9,10],["Plante",8,8],
+    ["Métal",6,12],["Poison",6,12],["Sable",5,12],["Ombre",4,20],["Lumière",4,22],["Néant",2,35],["Cosmos",1,45]]},
+  {name:"Pouvoir spécial", options:[
+    ["Super vitesse",9,10],["Super force",9,10],["Régénération",8,15],["Invisibilité",7,15],["Vol",7,15],
+    ["Clones",6,15],["Métamorphose",6,18],["Parler aux animaux",6,15],["Lecture des pensées",5,20],
+    ["Téléportation",5,22],["Copie des pouvoirs",4,25],["Contrôle des esprits",4,28],["Forme géante",4,25],
+    ["Absorption d'énergie",4,25],["Voir le futur",3,35],["Annuler les pouvoirs",3,35],["Immortalité",3,40],
+    ["Ressusciter les morts",2,45],["Arrêter le temps",2,50],["Réécrire la réalité",1,70]]},
+  {name:"Arme", options:[
+    ["Poings",10,5],["Épée",11,10],["Dague",9,8],["Lance",8,10],["Arc",8,10],["Bâton magique",7,12],
+    ["Katana",7,15],["Hache",6,12],["Nunchakus",5,12],["Éventail de combat",4,15],["Fouet",4,12],
+    ["Marteau géant",4,15],["Faux",4,20],["Pistolets",4,15],["Gantelets",3,18],["Bouclier vivant",2,25],
+    ["Épée maudite",2,30],["Arme divine",2,50]]}
+];
+const PALETTE=["#E5527A","#F08A3C","#E8B92F","#5FBF6E","#2FA4C9","#4F7BE0","#8A5FD6","#C25FB5","#7A86A6","#C98B5A","#3FB8A0","#D4574A"];
+
+function clone(g){return g.map(x=>({name:x.name,options:x.options.map(o=>({label:o[0]??o.label,weight:o[1]??o.weight,pts:o[2]??o.pts}))}));}
+let groups;
+try{ const s=localStorage.getItem("roue-groupes-v2"); groups = s ? JSON.parse(s) : clone(DEFAULT_GROUPS); }catch(e){ groups=clone(DEFAULT_GROUPS); }
+if(!Array.isArray(groups)||!groups.length) groups=clone(DEFAULT_GROUPS);
+function save(){try{localStorage.setItem("roue-groupes-v2",JSON.stringify(groups));}catch(e){}}
+
+const cv=document.getElementById("wheel"), ctx=cv.getContext("2d");
+const $=id=>document.getElementById(id);
+let rotation=0, spinning=false, players=[], pIdx=0, gIdx=0;
+
+/* ---------- En ligne : état ---------- */
+// L'hôte fait foi : il tire les résultats et les combats, les invités les rejouent.
+const net={on:false,host:false,seat:0,taken:[],conns:[],hostConn:null,peer:null,queue:[]};
+function mine(i){return !net.on || i===net.seat || (net.host && !net.taken.includes(i));}
+function canSpin(){return mine(pIdx);}
+function broadcast(m){net.conns.forEach(c=>{if(c.conn.open)c.conn.send(m);});}
+function whenIdle(fn){ if(spinning) net.queue.push(fn); else fn(); }
+function flushIdle(){ while(net.queue.length&&!spinning) net.queue.shift()(); }
+function sync(){
+  if(!net.host) return;
+  net.taken=net.conns.map(c=>c.seat);
+  net.conns.forEach(c=>{if(c.conn.open)c.conn.send({t:"state",groups,players,you:c.seat,taken:net.taken});});
+  renderNames(); render(); roomStatus();
+}
+function sendName(i,name){
+  if(!net.on) return;
+  if(net.host) broadcast({t:"name",i,name}); else net.hostConn.send({t:"name",name});
+}
+
+function cssVar(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function opts(g){return g.options.filter(o=>o.label && o.weight>0);}
+function tot(g){return opts(g).reduce((s,o)=>s+o.weight,0);}
+function rarity(p){ // p = probabilité 0..1
+  if(p>=.20) return {name:"Commun",col:cssVar("--common")};
+  if(p>=.10) return {name:"Rare",col:cssVar("--rare")};
+  if(p>=.04) return {name:"Épique",col:cssVar("--epic")};
+  return {name:"Légendaire",col:cssVar("--gold")};
+}
+function rank(n){return n>=200?"S":n>=140?"A":n>=100?"B":n>=70?"C":"D";}
+function rankCol(r){return {S:cssVar("--gold"),A:cssVar("--sakura"),B:cssVar("--epic"),C:cssVar("--rare"),D:cssVar("--common")}[r];}
+
+function segs(g){const t=tot(g);let a=0;return opts(g).map((o,i)=>{const span=t?o.weight/t*360:0;const s={o,start:a,end:a+span,color:PALETTE[i%PALETTE.length]};a+=span;return s;});}
+
+function draw(){
+  const g=groups[Math.min(gIdx,groups.length-1)]; const W=cv.width,c=W/2,R=c-8;
+  ctx.clearRect(0,0,W,W);
+  const S=segs(g);
+  if(!S.length){ctx.beginPath();ctx.arc(c,c,R,0,7);ctx.fillStyle=cssVar("--line");ctx.fill();}
+  S.forEach(s=>{
+    const a0=(s.start-90)*Math.PI/180,a1=(s.end-90)*Math.PI/180;
+    ctx.beginPath();ctx.moveTo(c,c);ctx.arc(c,c,R,a0,a1);ctx.closePath();
+    ctx.fillStyle=s.color;ctx.fill();ctx.lineWidth=4;ctx.strokeStyle="rgba(255,255,255,.85)";ctx.stroke();
+    const span=s.end-s.start;
+    if(span>=3.2){
+      const mid=(s.start+s.end)/2;
+      ctx.save();ctx.translate(c,c);ctx.rotate((mid-90)*Math.PI/180);
+      ctx.textAlign="right";ctx.textBaseline="middle";ctx.fillStyle="#fff";
+      let size=span<5?15:span<9?19:span<16?24:30; const maxW=R*0.66;
+      ctx.font=`900 ${size}px "Zen Kaku Gothic New", sans-serif`;
+      while(ctx.measureText(s.o.label).width>maxW && size>11){size-=2;ctx.font=`900 ${size}px "Zen Kaku Gothic New", sans-serif`;}
+      ctx.shadowColor="rgba(0,0,0,.35)";ctx.shadowBlur=4;
+      ctx.fillText(s.o.label,R-22,0);ctx.restore();
+    }
+  });
+  ctx.beginPath();ctx.arc(c,c,R,0,Math.PI*2);ctx.lineWidth=10;ctx.strokeStyle=cssVar("--ink")||"#1B1035";ctx.stroke();
+}
+
+function pick(g){let x=Math.random()*tot(g);for(const o of opts(g)){x-=o.weight;if(x<0)return o;}return opts(g).slice(-1)[0];}
+function points(p){return Object.values(p.res).reduce((s,r)=>s+(Number(r.pts)||0),0);}
+function finished(){return pIdx>=players.length;}
+
+function buildPlayers(){
+  const n=Math.min(8,Math.max(1,parseInt($("nb").value)||1)); $("nb").value=n;
+  const old=players;
+  players=Array.from({length:n},(_,i)=>old[i]||{name:`Joueur ${i+1}`,res:{}});
+  renderNames(); locate(); render(); sync();
+}
+function renderNames(){
+  $("names").innerHTML="";
+  players.forEach((p,i)=>{
+    const d=document.createElement("div");d.className="row";
+    d.innerHTML=`<label for="pn${i}">Joueur ${i+1}</label><input type="text" id="pn${i}" maxlength="20">`;
+    const inp=d.querySelector("input");inp.value=p.name;inp.disabled=!mine(i);
+    inp.addEventListener("input",()=>{p.name=inp.value||`Joueur ${i+1}`;render();sendName(i,p.name);});
+    $("names").appendChild(d);
+  });
+}
+function locate(){ // trouve le prochain joueur / groupe à tirer
+  pIdx=players.length; gIdx=0;
+  for(let j=0;j<groups.length;j++){for(let i=0;i<players.length;i++){if(!players[i].res[j]){pIdx=i;gIdx=j;return;}}}
+}
+
+function render(){
+  const g=groups[gIdx];
+  $("steps").innerHTML=groups.map((x,j)=>{
+    const cls = finished()||players.every(p=>p.res[j]) ? "done" : (j===gIdx?"now":"");
+    return `<span class="step ${cls}">${esc(x.name)}</span>`;}).join("");
+  if(!finished()){
+    $("wheelTitle").textContent=g.name;
+    $("turn").innerHTML=`Au tour de <strong>${esc(players[pIdx].name)}</strong>${net.on&&canSpin()?" (c'est à toi)":""}`;
+    $("spin").textContent=canSpin()?`Tourner : ${g.name}`:`En attente de ${players[pIdx].name}`;
+    $("spin").disabled=spinning||tot(g)<=0||!canSpin();
+  }else{
+    const best=players.reduce((a,b)=>points(a)>=points(b)?a:b);
+    $("wheelTitle").textContent="Tous les persos sont prêts";
+    $("turn").innerHTML=`Le plus puissant : <strong>${esc(best.name)}</strong> (${points(best)} pts)`;
+    $("spin").textContent="Terminé";$("spin").disabled=true;
+  }
+  if(typeof updateArena==="function") updateArena();
+  $("cards").innerHTML=players.map((p,i)=>{
+    const pts=points(p), done=groups.every((_,j)=>p.res[j]);
+    const r=rank(pts);
+    const rows=groups.map((x,j)=>{
+      const v=p.res[j];
+      if(!v) return `<span class="k">${esc(x.name)}</span><span class="pending">—</span><span class="p"></span>`;
+      return `<span class="k">${esc(x.name)}</span><span style="color:${v.col};font-weight:700">${esc(v.label)}</span><span class="p">+${v.pts}</span>`;
+    }).join("");
+    const border = (!finished() && i===pIdx) ? "var(--sakura)" : "var(--line)";
+    return `<div class="card" style="border-color:${border}"><div class="card-head"><b>${esc(p.name)}</b>${done?`<span class="rank" style="color:${rankCol(r)}">${r}</span>`:""}</div><div class="card-body">${avatarSVG(p,84)}<div class="attrs">${rows}</div></div>${typeof miniCounters==="function"?miniCounters(p):""}<div class="total">${pts} points</div></div>`;
+  }).join("");
+}
+
+$("spin").addEventListener("click",()=>{
+  if(spinning||finished()||!canSpin())return;
+  if(tot(groups[gIdx])<=0)return;
+  if(net.on&&!net.host){net.hostConn.send({t:"spinReq"});return;}
+  hostSpin();
+});
+function hostSpin(){
+  const g=groups[gIdx], o=pick(g), oi=opts(g).indexOf(o), s=segs(g)[oi];
+  const m=Math.min(2,(s.end-s.start)/4);
+  const target=s.start+m+Math.random()*(s.end-s.start-2*m);
+  broadcast({t:"spin",p:pIdx,g:gIdx,oi,target});
+  startSpin(oi,target);
+}
+function startSpin(oi,target){
+  const g=groups[gIdx], o=opts(g)[oi]; if(!o)return;
+  spinning=true;$("spin").disabled=true;$("reveal").className="reveal";$("hub").textContent="…";
+  const cur=((rotation%360)+360)%360;
+  rotation+=360*6+(((360-target)-cur+720)%360);
+  $("wheel").style.transform=`rotate(${rotation}deg)`;
+  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  setTimeout(()=>finish(g,o),reduce?60:5100);
+}
+
+function finish(g,o){
+  const prob=o.weight/tot(g), r=rarity(prob), p=players[pIdx];
+  p.res[gIdx]={label:o.label,pts:Number(o.pts)||0,col:r.col};
+  $("hub").textContent=o.label;
+  const rv=$("reveal");rv.style.borderColor=r.col;
+  rv.innerHTML=`${avatarSVG(p,130)}<div>${esc(p.name)} · ${esc(g.name)}</div><div class="val">${esc(o.label)}</div><span class="tag" style="background:${r.col}">${r.name} · ${(prob*100).toFixed(1)} %</span><div style="margin-top:4px">+${Number(o.pts)||0} points</div>`;
+  rv.className="reveal show";
+  setTimeout(()=>{ // passe à la roue suivante
+    spinning=false;
+    locate(); 
+    $("wheel").classList.add("instant"); rotation=rotation%360; $("wheel").style.transform=`rotate(${rotation}deg)`;
+    void $("wheel").offsetWidth; $("wheel").classList.remove("instant");
+    draw(); render(); flushIdle();
+  },reduceDelay());
+  render();
+}
+function reduceDelay(){return matchMedia("(prefers-reduced-motion: reduce)").matches?50:900;}
+
+function resetGame(){
+  if(spinning)return;
+  players.forEach(p=>p.res={});
+  $("reveal").className="reveal";$("hub").textContent="Tourne !";
+  locate();draw();render();sync();
+}
+$("reset").addEventListener("click",resetGame);
+$("nb").addEventListener("change",buildPlayers);
+
+/* ---------- Éditeur de groupes ---------- */
+function renderEditor(){
+  const box=$("groups");box.innerHTML="";
+  groups.forEach((g,gi)=>{
+    const t=tot(g);
+    const d=document.createElement("div");d.className="group";
+    d.innerHTML=`<div class="group-head"><input type="text" value="${esc(g.name)}" aria-label="Nom du groupe" data-gname="${gi}">${groups.length>1?`<button class="x" data-delg="${gi}" aria-label="Supprimer le groupe">✕</button>`:""}</div>
+      <div class="opt-h"><span>Option</span><span>Chance</span><span>Points</span><span></span></div>
+      ${g.options.map((o,oi)=>`<div class="opt">
+        <div><input type="text" value="${esc(o.label)}" data-g="${gi}" data-o="${oi}" data-f="label" aria-label="Nom"><div class="pct">${t&&o.weight>0?(o.weight/t*100).toFixed(1)+" %":"0 %"}</div></div>
+        <input type="number" min="0" value="${o.weight}" data-g="${gi}" data-o="${oi}" data-f="weight" aria-label="Chance">
+        <input type="number" value="${o.pts}" data-g="${gi}" data-o="${oi}" data-f="pts" aria-label="Points">
+        <button class="x" data-delo="${gi}:${oi}" aria-label="Supprimer l'option">✕</button></div>`).join("")}
+      <button class="ghost small" data-addo="${gi}">Ajouter une option</button>`;
+    box.appendChild(d);
+  });
+}
+$("groups").addEventListener("change",e=>{
+  const t=e.target;
+  if(t.dataset.gname!==undefined){groups[t.dataset.gname].name=t.value||"Groupe";}
+  else if(t.dataset.f){const o=groups[t.dataset.g].options[t.dataset.o];
+    o[t.dataset.f]= t.dataset.f==="label"? t.value : Math.max(t.dataset.f==="weight"?0:-999,parseFloat(t.value)||0);}
+  else return;
+  save();renderEditor();resetGame();renderGuide();
+});
+$("groups").addEventListener("click",e=>{
+  const t=e.target.closest("button");if(!t)return;
+  if(t.dataset.delg!==undefined){groups.splice(+t.dataset.delg,1);}
+  else if(t.dataset.delo){const [g,o]=t.dataset.delo.split(":").map(Number);groups[g].options.splice(o,1);}
+  else if(t.dataset.addo!==undefined){groups[+t.dataset.addo].options.push({label:"Nouvelle option",weight:10,pts:10});}
+  else return;
+  save();renderEditor();resetGame();renderGuide();
+});
+$("addGroup").addEventListener("click",()=>{
+  groups.push({name:"Nouveau groupe",options:[{label:"Option A",weight:60,pts:5},{label:"Option B",weight:30,pts:15},{label:"Option C",weight:10,pts:30}]});
+  save();renderEditor();resetGame();renderGuide();
+});
+$("restore").addEventListener("click",()=>{groups=clone(DEFAULT_GROUPS);save();renderEditor();resetGame();renderGuide();});
+
+
+/* ---------- Dessin des personnages ---------- */
+let AVID=0;
+const SKIN={"Humain":"#F2C9A0","Homme-bête":"#E8B48A","Nain":"#E9B994","Elfe":"#F7DCC2","Homme-poisson":"#6FB7D9","Orc":"#7FA65A",
+ "Cyborg":"#EAC4A2","Homme-oiseau":"#F2D3B0","Vampire":"#ECE6F2","Démon":"#C9454F","Géant":"#D9A47A","Dragonien":"#5E9E6E",
+ "Ange":"#FBE6D4","Homme-ombre":"#2E2540","Esprit":"#CFE6FF","Dieu déchu":"#DCCBB8"};
+const ELCOL={"Feu":"#E8452C","Eau":"#2F7BE0","Vent":"#5FD3B0","Terre":"#8A5A2E","Glace":"#9FE3F5","Foudre":"#F5C928","Plante":"#3FA34D",
+ "Métal":"#A7B0BE","Poison":"#8E3FBF","Sable":"#D9B26A","Ombre":"#3A2A55","Lumière":"#FFE58A","Néant":"#4A4A55","Cosmos":"#3B2C8F"};
+const EYE={"Vampire":"#D0182E","Démon":"#F5C928","Homme-ombre":"#FFFFFF","Dieu déchu":"#E8B020","Dragonien":"#E89A1A","Esprit":"#4FA3FF","Cyborg":"#3A2A55"};
+function shade(hex,f){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;
+  const t=f<0?0:255,p=Math.abs(f);r=Math.round((t-r)*p+r);g=Math.round((t-g)*p+g);b=Math.round((t-b)*p+b);return "#"+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);}
+function resBy(p,n){const j=groups.findIndex(g=>g.name.toLowerCase()===n);return j>=0&&p.res[j]?p.res[j].label:null;}
+
+function weaponSVG(w,el,L){ L=L||0;
+  const X=90,Y=98, glow=ELCOL[el]||"#FFD84A";
+  switch(w){
+    case "Épée": return `<path d="M${X} ${Y} L${X} ${Y-48}" stroke="#DDE3EA" stroke-width="5" stroke-linecap="round"/><rect x="${X-8}" y="${Y-4}" width="16" height="4" rx="2" fill="#8A6A2E"/>`;
+    case "Katana": return `<path d="M${X} ${Y} Q${X+8} ${Y-30} ${X+2} ${Y-56}" stroke="#E8ECF2" stroke-width="3.5" fill="none" stroke-linecap="round"/><rect x="${X-5}" y="${Y-3}" width="10" height="3" fill="#C9A227"/>`;
+    case "Dague": return `<path d="M${X} ${Y} L${X+2} ${Y-22}" stroke="#DDE3EA" stroke-width="4" stroke-linecap="round"/>`;
+    case "Lance": return `<path d="M${X} ${Y+26} L${X} ${Y-58}" stroke="#7A5530" stroke-width="3.5"/><path d="M${X-5} ${Y-52} L${X} ${Y-68} L${X+5} ${Y-52}Z" fill="#DDE3EA"/>`;
+    case "Arc": return `<g transform="translate(${L} 0)"><path d="M24 60 Q8 88 24 116" stroke="#7A5530" stroke-width="3.5" fill="none"/><path d="M24 60 L24 116" stroke="#ddd" stroke-width="1"/></g>`;
+    case "Bâton magique": return `<path d="M${X} ${Y+24} L${X} ${Y-44}" stroke="#6B4A2A" stroke-width="4"/><circle cx="${X}" cy="${Y-50}" r="7" fill="${glow}" stroke="#fff" stroke-width="1.5"/>`;
+    case "Hache": return `<path d="M${X} ${Y+10} L${X} ${Y-40}" stroke="#7A5530" stroke-width="4"/><path d="M${X} ${Y-40} Q${X+18} ${Y-38} ${X+16} ${Y-22} Q${X+8} ${Y-26} ${X} ${Y-24}Z" fill="#C2C9D2"/>`;
+    case "Nunchakus": return `<rect x="${X-3}" y="${Y-20}" width="6" height="18" rx="2" fill="#6B4A2A"/><path d="M${X} ${Y-20} Q${X+8} ${Y-30} ${X+12} ${Y-26}" stroke="#888" stroke-width="1.5" fill="none"/><rect x="${X+10}" y="${Y-28}" width="6" height="18" rx="2" fill="#6B4A2A" transform="rotate(30 ${X+13} ${Y-19})"/>`;
+    case "Éventail de combat": return `<path d="M${X} ${Y} L${X-14} ${Y-24} A28 28 0 0 1 ${X+14} ${Y-24}Z" fill="${glow}" stroke="#333" stroke-width="1"/>`;
+    case "Fouet": return `<path d="M${X} ${Y} Q${X+16} ${Y-10} ${X+6} ${Y-26} T${X+14} ${Y-50}" stroke="#5A3A1E" stroke-width="2.5" fill="none"/>`;
+    case "Marteau géant": return `<path d="M${X} ${Y+12} L${X} ${Y-40}" stroke="#7A5530" stroke-width="4"/><rect x="${X-14}" y="${Y-58}" width="28" height="18" rx="3" fill="#8D96A3"/>`;
+    case "Faux": return `<path d="M${X} ${Y+26} L${X} ${Y-56}" stroke="#3A2E2A" stroke-width="3.5"/><path d="M${X} ${Y-56} Q${X-30} ${Y-58} ${X-36} ${Y-36} Q${X-24} ${Y-48} ${X} ${Y-48}Z" fill="#C9CED6"/>`;
+    case "Pistolets": return `<path d="M${X-4} ${Y-2} L${X+12} ${Y-2} L${X+12} ${Y-8} L${X-4} ${Y-8}Z M${X-4} ${Y-2} L${X-2} ${Y+6} L${X+3} ${Y+6} L${X+2} ${Y-2}Z" fill="#3A3F48"/><path transform="translate(${L} 0)" d="M${30-12} ${Y-2} L${30+4} ${Y-2} L${30+4} ${Y-8} L${30-12} ${Y-8}Z" fill="#3A3F48"/>`;
+    case "Gantelets": return `<rect x="${X-9}" y="${Y-12}" width="18" height="16" rx="5" fill="#8D96A3" stroke="#fff" stroke-width="1"/><rect x="${21+L}" y="${Y-12}" width="18" height="16" rx="5" fill="#8D96A3" stroke="#fff" stroke-width="1"/>`;
+    case "Bouclier vivant": return `<g transform="translate(${L} 0)"><path d="M14 72 L40 72 L40 96 Q27 112 14 96Z" fill="#6E4B8C" stroke="#C9A227" stroke-width="2"/><ellipse cx="27" cy="86" rx="6" ry="4" fill="#fff"/><circle cx="27" cy="86" r="2.5" fill="#D0182E"/></g>`;
+    case "Épée maudite": return `<path d="M${X} ${Y} L${X} ${Y-52}" stroke="#7A2BB5" stroke-width="7" stroke-linecap="round" opacity=".45"/><path d="M${X} ${Y} L${X} ${Y-50}" stroke="#2A1638" stroke-width="4.5" stroke-linecap="round"/><rect x="${X-8}" y="${Y-4}" width="16" height="4" rx="2" fill="#7A2BB5"/>`;
+    case "Arme divine": return `<path d="M${X} ${Y} L${X} ${Y-54}" stroke="#FFE58A" stroke-width="9" stroke-linecap="round" opacity=".5"/><path d="M${X} ${Y} L${X} ${Y-52}" stroke="#F5C928" stroke-width="5" stroke-linecap="round"/><path d="M${X-10} ${Y-4} L${X+10} ${Y-4}" stroke="#fff" stroke-width="3"/>`;
+    default: return "";
+  }
+}
+
+const FORCE_LV=["Très faible","Faible","Normale","Solide","Forte","Très forte","Surhumaine","Monstrueuse","Titanesque","Divine"];
+function magicFX(m,col){
+  // renvoie [derrière, devant]
+  switch(m){
+    case "Magie élémentaire": return ["",`<circle cx="22" cy="40" r="4" fill="${col}"/><circle cx="100" cy="56" r="3.5" fill="${col}"/><circle cx="96" cy="24" r="3" fill="${col}" opacity=".8"/>`];
+    case "Magie de soin": return ["",`<path d="M20 30h8M24 26v8M96 58h6M99 55v6M100 20h6M103 17v6" stroke="#3FD47A" stroke-width="2.5" stroke-linecap="round"/>`];
+    case "Barrières": return [`<path d="M60 4 L110 30 L110 100 L60 132 L10 100 L10 30Z" fill="#7FC8FF" fill-opacity=".12" stroke="#7FC8FF" stroke-width="2" stroke-opacity=".7"/>`,""];
+    case "Télékinésie": return ["",`<path d="M14 40 l7 -3 l4 5 l-6 4z M98 22 l8 -2 l3 6 l-7 3z M102 70 l6 0 l2 5 l-7 2z" fill="#8A7A6A" stroke="#B57BFF" stroke-width="1.5"/>`];
+    case "Illusion": return [`<path d="M14 30 q8 -10 16 0 t16 0" stroke="#FF8AD8" stroke-width="2" fill="none" opacity=".8"/><path d="M76 24 q8 -10 16 0 t16 0" stroke="#FF8AD8" stroke-width="2" fill="none" opacity=".8"/>`,""];
+    case "Invocation": return ["",`<g transform="translate(100 34)"><path d="M-8 4 Q0 -14 8 4 Q4 10 0 6 Q-4 10 -8 4Z" fill="${col}" opacity=".9"/><circle cx="-3" cy="0" r="1.4" fill="#fff"/><circle cx="3" cy="0" r="1.4" fill="#fff"/></g>`];
+    case "Magie des runes": return [`<circle cx="60" cy="70" r="54" fill="none" stroke="#5FE0FF" stroke-width="1.5" stroke-dasharray="3 6" opacity=".7"/>`,`<text x="16" y="34" font-size="12" fill="#5FE0FF" font-weight="900">ᚠ</text><text x="98" y="30" font-size="12" fill="#5FE0FF" font-weight="900">ᚱ</text><text x="102" y="76" font-size="12" fill="#5FE0FF" font-weight="900">ᛟ</text>`];
+    case "Malédictions": return ["",`<path d="M44 44 l4 4 M44 48 l4 -4" stroke="#7A2BB5" stroke-width="1.6"/><path d="M14 60 q6 -8 2 -16 q8 4 6 14" fill="#4A1A6A" opacity=".7"/><path d="M104 60 q-6 -8 -2 -16 q-8 4 -6 14" fill="#4A1A6A" opacity=".7"/>`];
+    case "Magie du sang": return ["",`<path d="M20 36 q3 6 0 8 q-3 -2 0 -8z M100 44 q3 6 0 8 q-3 -2 0 -8z M96 18 q3 6 0 8 q-3 -2 0 -8z" fill="#C8102E"/>`];
+    case "Nécromancie": return ["",`<g transform="translate(101 30)"><path d="M-7 4 Q-6 -10 0 -12 Q6 -10 7 4" fill="#4CFF7A" opacity=".5"/><circle cx="0" cy="0" r="6" fill="#EDE6D6"/><rect x="-3.5" y="4" width="7" height="4" fill="#EDE6D6"/><circle cx="-2.2" cy="-.5" r="1.6" fill="#222"/><circle cx="2.2" cy="-.5" r="1.6" fill="#222"/></g>`];
+    case "Gravité": return [`<ellipse cx="60" cy="132" rx="38" ry="6" fill="#1A0F2E" opacity=".6"/><ellipse cx="60" cy="132" rx="46" ry="8" fill="none" stroke="#6A4AC0" stroke-width="1.5"/>`,`<circle cx="18" cy="26" r="3" fill="#6A6A7A"/><circle cx="104" cy="44" r="2.5" fill="#6A6A7A"/>`];
+    case "Magie spatiale": return [`<ellipse cx="60" cy="62" rx="44" ry="50" fill="none" stroke="#7A5CFF" stroke-width="4" opacity=".55"/><ellipse cx="60" cy="62" rx="38" ry="44" fill="#2A1A6A" opacity=".3"/>`,""];
+    case "Magie des étoiles": return ["",`<path d="M20 26 l2 5 5 0 -4 3 2 5 -5 -3 -5 3 2 -5 -4 -3 5 0z M100 54 l1.5 4 4 0 -3 2.5 1.5 4 -4 -2.5 -4 2.5 1.5 -4 -3 -2.5 4 0z M96 14 l1.2 3 3 0 -2.4 2 1 3 -2.8 -1.8 -2.8 1.8 1 -3 -2.4 -2 3 0z" fill="#FFE58A"/>`];
+    case "Magie du temps": return [`<circle cx="60" cy="58" r="50" fill="#F5E6B0" fill-opacity=".15" stroke="#C9A227" stroke-width="2"/><path d="M60 58 L60 18 M60 58 L88 70" stroke="#C9A227" stroke-width="2.5" stroke-linecap="round" opacity=".7"/><g fill="#C9A227"><circle cx="60" cy="10" r="2"/><circle cx="108" cy="58" r="2"/><circle cx="60" cy="106" r="2"/><circle cx="12" cy="58" r="2"/></g>`,""];
+    case "Magie du chaos": return ["",`<path d="M12 30 l6 6 -6 4 8 6" stroke="#FF3FA0" stroke-width="2" fill="none"/><path d="M106 22 l-6 6 6 4 -8 6" stroke="#3FFFD0" stroke-width="2" fill="none"/><path d="M104 74 l-5 4 5 3 -6 5" stroke="#FFE03F" stroke-width="2" fill="none"/>`];
+    default: return ["",""];
+  }
+}
+function powerFX(pw,col){
+  // [derrière, devant, options]
+  const o={};
+  switch(pw){
+    case "Super vitesse": return [`<path d="M2 80h22M0 92h26M4 104h18M6 68h14" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".7"/>`,"",o];
+    case "Super force": o.extraArm=2; return ["",`<path d="M100 104 l8 -4 M102 110 l9 0 M100 116 l8 4" stroke="#FFD84A" stroke-width="2" stroke-linecap="round"/>`,o];
+    case "Régénération": return ["",`<path d="M42 84h6M45 81v6M72 92h5M74.5 89.5v5M50 100h4M52 98v4" stroke="#3FD47A" stroke-width="2" stroke-linecap="round"/>`,o];
+    case "Invisibilité": o.opacity=.5; return [`<path d="M20 120 q40 -10 80 0" stroke="#9FE3F5" stroke-width="1.5" fill="none" stroke-dasharray="2 4"/>`,"",o];
+    case "Vol": o.lift=-10; return [`<ellipse cx="60" cy="134" rx="22" ry="4" fill="#000" opacity=".25"/>`,`<path d="M40 124 q4 6 0 10 M80 124 q-4 6 0 10" stroke="#fff" stroke-width="1.5" fill="none" opacity=".6"/>`,o];
+    case "Clones": o.clones=true; return ["","",o];
+    case "Métamorphose": return ["",`<path d="M44 42 l6 3 M44 46 l6 2 M76 42 l-6 3 M76 46 l-6 2" stroke="#3A2A1A" stroke-width="1.6" stroke-linecap="round"/>`,o];
+    case "Parler aux animaux": return ["",`<g transform="translate(86 64)"><ellipse cx="0" cy="0" rx="7" ry="5" fill="#4FA3FF"/><circle cx="5" cy="-4" r="3.5" fill="#4FA3FF"/><path d="M8 -4 l4 1 -4 1z" fill="#F5B428"/><circle cx="6" cy="-5" r=".9" fill="#000"/></g>`,o];
+    case "Lecture des pensées": return ["",`<ellipse cx="60" cy="33" rx="3.2" ry="2.2" fill="#B57BFF"/><circle cx="60" cy="33" r="1" fill="#fff"/>`,o];
+    case "Téléportation": return ["",`<g fill="#7A5CFF" opacity=".75"><rect x="16" y="70" width="5" height="5"/><rect x="24" y="62" width="4" height="4"/><rect x="98" y="88" width="5" height="5"/><rect x="104" y="78" width="3" height="3"/><rect x="20" y="96" width="3" height="3"/></g>`,o];
+    case "Copie des pouvoirs": o.eye="url(#RAIN)"; return ["",`<path d="M14 50 a6 6 0 1 1 0 .1 M106 50 a6 6 0 1 1 0 .1" stroke="#FF5FA2" stroke-width="1.5" fill="none"/>`,o];
+    case "Contrôle des esprits": o.spiral=true; return ["","",o];
+    case "Forme géante": o.giant=true; return ["","",o];
+    case "Absorption d'énergie": return ["",`<circle cx="34" cy="102" r="7" fill="#FFE03F" opacity=".55"/><circle cx="86" cy="102" r="7" fill="#FFE03F" opacity=".55"/>`,o];
+    case "Voir le futur": o.eyeCol="#F5C928"; return ["",`<g transform="translate(60 8)"><path d="M-10 0 Q0 -7 10 0 Q0 7 -10 0Z" fill="none" stroke="#F5C928" stroke-width="1.8"/><circle r="2.5" fill="#F5C928"/></g>`,o];
+    case "Annuler les pouvoirs": return ["",`<path d="M28 82 h14 M28 88 h14 M78 82 h14 M78 88 h14" stroke="#B0B7C2" stroke-width="2.5"/><circle cx="35" cy="85" r="2" fill="#666"/><circle cx="85" cy="85" r="2" fill="#666"/>`,o];
+    case "Immortalité": return [`<path d="M60 128 Q14 110 22 60 Q32 82 38 72 Q34 40 52 26 Q50 50 60 46 Q70 50 68 26 Q86 40 82 72 Q88 82 98 60 Q106 110 60 128Z" fill="#FF8A2C" opacity=".35"/>`,"",o];
+    case "Ressusciter les morts": return ["",`<path d="M16 120 q-4 -12 4 -20 q2 10 6 12 q2 -6 -2 -14 q10 8 6 22z M104 120 q4 -12 -4 -20 q-2 10 -6 12 q-2 -6 2 -14 q-10 8 -6 22z" fill="#4CFF7A" opacity=".55"/>`,o];
+    case "Arrêter le temps": o.tint=true; return [`<circle cx="60" cy="66" r="56" fill="none" stroke="#9FE3F5" stroke-width="1.5" stroke-dasharray="6 4"/>`,`<g transform="translate(100 96)"><circle r="7" fill="#F5E6B0" stroke="#C9A227" stroke-width="1.6"/><path d="M0 0 V-4.5 M0 0 H3.5" stroke="#3A2A1A" stroke-width="1.2"/></g>`,o];
+    case "Réécrire la réalité": return [`<circle cx="60" cy="70" r="58" fill="#fff" opacity=".12"/>`,`<g opacity=".8"><rect x="10" y="40" width="16" height="3" fill="#3FFFD0"/><rect x="94" y="64" width="18" height="3" fill="#FF3FA0"/><rect x="14" y="98" width="10" height="3" fill="#FFE03F"/><rect x="98" y="26" width="12" height="2" fill="#fff"/></g>`,o];
+    default: return ["","",o];
+  }
+}
+function avatarSVG(p,size){
+  const race=resBy(p,"race"), el=resBy(p,"élément"), weapon=resBy(p,"arme"),
+        force=resBy(p,"force"), magic=resBy(p,"magie"), power=resBy(p,"pouvoir spécial");
+  const id="av"+(AVID++);
+  const H=Math.round(size*140/120);
+  if(!race && !el && !force) return `<svg viewBox="0 0 120 140" width="${size}" height="${H}" aria-hidden="true"><circle cx="60" cy="48" r="22" fill="var(--line)"/><rect x="40" y="70" width="40" height="40" rx="12" fill="var(--line)"/><text x="60" y="56" text-anchor="middle" font-size="22" font-weight="900" fill="var(--muted)">?</text></svg>`;
+  const R=race||"Humain";
+  const skin=SKIN[R]||"#F2C9A0", hair=ELCOL[el]||"#3A2A2A", outfit=shade(ELCOL[el]||"#5A4A7A",-.35);
+  const col=ELCOL[el]||"#B57BFF";
+  const [pBack,pFront,po]=powerFX(power,col);
+  const [mBack,mFront]=magicFX(magic,col);
+  let eye=po.eyeCol||EYE[R]||"#2A1B3D";
+  if(magic==="Magie du sang") eye="#C8102E";
+  // carrure selon la force
+  let fi=FORCE_LV.indexOf(force); if(fi<0) fi=2;
+  const bw=[33,36,40,42,44,46,48,52,56,52][fi]+(po.extraArm||0), aw=[8,9,11,12,13,14,15,17,19,16][fi]+(po.extraArm||0);
+  const bx=60-bw/2, lx=bx-aw, rx=60+bw/2, dR=(rx+aw/2)-85.5, dL=(lx+aw/2)-34.5;
+  const back=[], op = R==="Esprit" ? ' opacity=".75"' : "";
+  if(R==="Homme-bête") back.push(`<path d="M74 104 Q104 110 98 84 Q96 76 102 70" stroke="#B5763F" stroke-width="7" fill="none" stroke-linecap="round"/>`);
+  if(R==="Démon") back.push(`<path d="M72 106 Q100 116 100 90" stroke="${skin}" stroke-width="4" fill="none"/><path d="M96 88 L104 82 L104 94Z" fill="${shade(skin,-.3)}"/>`);
+  if(R==="Dragonien") back.push(`<path d="M42 78 L6 50 L14 70 L4 76 L18 86 L10 98 L42 94Z" fill="${shade(skin,-.25)}"/><path d="M78 78 L114 50 L106 70 L116 76 L102 86 L110 98 L78 94Z" fill="${shade(skin,-.25)}"/><path d="M70 108 Q96 124 108 108" stroke="${skin}" stroke-width="8" fill="none" stroke-linecap="round"/>`);
+  if(R==="Ange"||R==="Homme-oiseau"||R==="Dieu déchu"){
+    const wc = R==="Ange"?"#FFFFFF":R==="Dieu déchu"?"#1E1A28":"#9C6B3E";
+    back.push(`<path d="M42 80 Q4 60 8 30 Q20 52 22 46 Q26 64 30 58 Q32 72 42 72Z" fill="${wc}" stroke="${shade(wc,-.2)}" stroke-width="1"/><path d="M78 80 Q116 60 112 30 Q100 52 98 46 Q94 64 90 58 Q88 72 78 72Z" fill="${wc}" stroke="${shade(wc,-.2)}" stroke-width="1"/>`);}
+  if(R==="Vampire") back.push(`<path d="M36 70 L26 124 L94 124 L84 70Z" fill="#2A0E18"/><path d="M38 70 L30 58 L46 66Z M82 70 L90 58 L74 66Z" fill="#6E0F22"/>`);
+  if(R==="Homme-poisson") back.push(`<path d="M60 70 L52 58 L68 58Z" fill="${shade(skin,-.25)}"/>`);
+  const legs = R==="Esprit" ? `<path d="M42 104 Q60 140 74 128 Q66 124 70 116 Q58 120 78 104Z" fill="${outfit}"${op}/>`
+    : `<rect x="${60-bw/4-7}" y="102" width="${10+fi*0.4}" height="26" rx="4" fill="${shade(outfit,-.3)}"/><rect x="${60+bw/4-3}" y="102" width="${10+fi*0.4}" height="26" rx="4" fill="${shade(outfit,-.3)}"/><rect x="${60-bw/4-9}" y="124" width="${14+fi*0.4}" height="7" rx="3" fill="#2A1B1B"/><rect x="${60+bw/4-4}" y="124" width="${14+fi*0.4}" height="7" rx="3" fill="#2A1B1B"/>`;
+  let body=`<rect x="${bx}" y="68" width="${bw}" height="38" rx="11" fill="${outfit}"${op}/><path d="M50 68 L60 82 L70 68" fill="none" stroke="${shade(outfit,.35)}" stroke-width="2"/><rect x="${lx}" y="72" width="${aw}" height="30" rx="${aw/2}" fill="${skin}"${op}/><rect x="${rx}" y="72" width="${aw}" height="30" rx="${aw/2}" fill="${skin}"${op}/>`;
+  if(fi>=5) body+=`<path d="M${bx+6} 86 Q55 92 60 86 Q65 92 ${rx-6} 86" stroke="${shade(outfit,.3)}" stroke-width="1.6" fill="none"/><path d="M56 94 h8 M56 99 h8" stroke="${shade(outfit,.25)}" stroke-width="1.3"/>`;
+  if(fi>=6) body+=`<circle cx="${lx+aw/2}" cy="78" r="${aw/2+2}" fill="${skin}"/><circle cx="${rx+aw/2}" cy="78" r="${aw/2+2}" fill="${skin}"/><path d="M${lx+3} 86 h${aw-6} M${rx+3} 86 h${aw-6}" stroke="${shade(skin,-.25)}" stroke-width="1.3"/>`;
+  if(fi===0) body+=`<path d="M${bx+4} 74 h4" stroke="${shade(outfit,.3)}" stroke-width="1"/>`;
+  // effets de force (derrière)
+  let fBack="";
+  if(fi===7||fi===8) fBack=`<path d="M22 70 q-6 -8 0 -16 M98 70 q6 -8 0 -16 M30 54 q-4 -6 0 -12 M90 54 q4 -6 0 -12" stroke="#FF5F5F" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".75"/>`;
+  if(fi===9) fBack=`<circle cx="60" cy="70" r="52" fill="none" stroke="#F5C928" stroke-width="3" opacity=".6"/><circle cx="60" cy="70" r="46" fill="#FFE58A" opacity=".18"/>`;
+  let ears="";
+  if(R==="Elfe") ears=`<path d="M40 48 L22 34 L40 56Z" fill="${skin}"/><path d="M80 48 L98 34 L80 56Z" fill="${skin}"/>`;
+  if(R==="Orc") ears=`<path d="M39 48 L30 40 L40 56Z" fill="${skin}"/><path d="M81 48 L90 40 L80 56Z" fill="${skin}"/>`;
+  if(R==="Homme-poisson") ears=`<path d="M40 50 L26 38 L28 50 L24 58Z" fill="${shade(skin,-.25)}"/><path d="M80 50 L94 38 L92 50 L96 58Z" fill="${shade(skin,-.25)}"/>`;
+  const head=`<rect x="54" y="62" width="12" height="8" fill="${skin}"${op}/><circle cx="60" cy="48" r="22" fill="${skin}"${op}/>`;
+  let hairP=`<path d="M37 50 Q36 22 60 22 Q84 22 83 50 Q78 36 70 38 L66 30 L60 38 L52 30 L48 40 Q42 38 37 50Z" fill="${R==="Homme-ombre"?"#120D1C":hair}"/>`;
+  if(R==="Nain") hairP=`<path d="M38 44 Q40 24 60 24 Q80 24 82 44 Q70 34 60 36 Q50 34 38 44Z" fill="${hair}"/>`;
+  if(R==="Esprit") hairP=`<path d="M38 44 Q42 20 60 22 Q78 20 84 40 Q92 30 100 34 Q86 40 80 46 Q74 32 60 34 Q46 32 38 44Z" fill="#E8F4FF" opacity=".85"/>`;
+  const glowEyes = R==="Homme-ombre";
+  const eyeFill = po.eye || eye;
+  let face=`<ellipse cx="52" cy="51" rx="3.4" ry="4.8" fill="${eyeFill}"/><ellipse cx="68" cy="51" rx="3.4" ry="4.8" fill="${eyeFill}"/>`;
+  if(po.spiral) face+=`<path d="M52 51 m-2 0 a2 2 0 1 1 2 2 a3 3 0 1 1 -3 -3 M68 51 m-2 0 a2 2 0 1 1 2 2 a3 3 0 1 1 -3 -3" stroke="#FF8AD8" stroke-width=".9" fill="none"/>`;
+  else if(!glowEyes) face+=`<circle cx="53.2" cy="49.2" r="1.3" fill="#fff"/><circle cx="69.2" cy="49.2" r="1.3" fill="#fff"/>`;
+  if(po.eyeCol||magic==="Magie du sang") face+=`<ellipse cx="52" cy="51" rx="6" ry="7" fill="${eye}" opacity=".25"/><ellipse cx="68" cy="51" rx="6" ry="7" fill="${eye}" opacity=".25"/>`;
+  // bouche plus déterminée si très fort
+  face+= glowEyes?"": fi>=6 ? `<path d="M55 60 L65 60" stroke="#6B2B2B" stroke-width="1.8" stroke-linecap="round"/><path d="M47 43 L56 45 M73 43 L64 45" stroke="#2A1B1B" stroke-width="1.8" stroke-linecap="round"/>` : `<path d="M56 60 Q60 63 64 60" stroke="#6B2B2B" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
+  if(R==="Vampire") face+=`<path d="M57 60 L58 64 L59 60Z M61 60 L62 64 L63 60Z" fill="#fff"/>`;
+  if(R==="Orc") face+=`<path d="M54 60 L55 54 L57 60Z M63 60 L65 54 L66 60Z" fill="#FFF8E6"/>`;
+  if(R==="Homme-bête") face+=`<path d="M58.5 56 L61.5 56 L60 58Z" fill="#4A2A1A"/>`;
+  if(R==="Homme-oiseau") face+=`<path d="M57 55 L63 55 L60 61Z" fill="#E8A21A"/>`;
+  if(R==="Dragonien") face+=`<circle cx="44" cy="56" r="1.5" fill="${shade(skin,-.3)}"/><circle cx="47" cy="59" r="1.5" fill="${shade(skin,-.3)}"/><circle cx="76" cy="56" r="1.5" fill="${shade(skin,-.3)}"/><circle cx="73" cy="59" r="1.5" fill="${shade(skin,-.3)}"/>`;
+  if(R==="Homme-poisson") face+=`<path d="M48 64 Q50 66 48 68 M72 64 Q70 66 72 68" stroke="${shade(skin,-.35)}" stroke-width="1.3" fill="none"/>`;
+  if(R==="Géant"||fi===8) face+=`<path d="M66 40 L72 46" stroke="#8A3A2A" stroke-width="1.6"/>`;
+  if(R==="Cyborg") face+=`<path d="M60 26 Q80 26 82 48 Q80 66 60 70Z" fill="#9AA6B8" opacity=".9"/><circle cx="68" cy="51" r="4" fill="#E8282E"/><circle cx="68" cy="51" r="7" fill="#E8282E" opacity=".25"/><path d="M74 26 L80 12" stroke="#9AA6B8" stroke-width="2"/><circle cx="80" cy="12" r="2.5" fill="#E8282E"/>`;
+  if(R==="Nain") face+=`<path d="M40 54 Q42 82 60 84 Q78 82 80 54 Q72 64 60 62 Q48 64 40 54Z" fill="${shade(hair,-.2)}"/>`;
+  let top="";
+  if(R==="Homme-bête") top=`<path d="M40 36 L38 12 L54 28Z" fill="#B5763F"/><path d="M80 36 L82 12 L66 28Z" fill="#B5763F"/><path d="M42 32 L41 18 L50 28Z M78 32 L79 18 L70 28Z" fill="#F2C9A0"/>`;
+  if(R==="Démon") top=`<path d="M44 30 Q34 16 40 6 Q44 18 50 26Z" fill="#2A1B1B"/><path d="M76 30 Q86 16 80 6 Q76 18 70 26Z" fill="#2A1B1B"/>`;
+  if(R==="Dragonien") top=`<path d="M44 30 Q30 22 26 12 Q40 18 50 26Z" fill="#E8D8B0"/><path d="M76 30 Q90 22 94 12 Q80 18 70 26Z" fill="#E8D8B0"/>`;
+  if(R==="Ange") top=`<ellipse cx="60" cy="14" rx="16" ry="4.5" fill="none" stroke="#F5C928" stroke-width="3"/>`;
+  if(R==="Dieu déchu") top=`<path d="M45 15 A16 4.5 0 0 1 58 10" fill="none" stroke="#F5C928" stroke-width="3"/><path d="M64 10 A16 4.5 0 0 1 75 16" fill="none" stroke="#F5C928" stroke-width="3"/>`;
+  if(R==="Homme-oiseau") top=`<path d="M58 24 Q56 8 64 4 Q62 14 66 24Z" fill="#C24A2E"/>`;
+  // groupes personnalisés : une gemme par résultat, couleur de rareté
+  let gems=""; let gx=0;
+  groups.forEach((g,j)=>{ if(!KNOWN.includes(g.name.toLowerCase()) && p.res[j]){ gems+=`<path d="M${54+gx} 74 l3 -3 l3 3 l-3 4z" fill="${p.res[j].col}" stroke="#fff" stroke-width=".6"/>`; gx+=7; } });
+  const char = back.join("")+legs+body+`<g transform="translate(${dR} 0)">${weaponSVG(weapon,el,dL-dR)}</g>`+gems+ears+head+hairP+face+top;
+  const raceScale = R==="Géant" ? 1.1 : R==="Nain" ? .9 : 1;
+  const s = raceScale*(po.giant?1.14:1);
+  const tr = `translate(60 ${132+(po.lift||0)}) scale(${s}${R==="Nain"&&!po.giant?" .88":""}) translate(-60 -132)`;
+  const clones = po.clones ? `<g opacity=".22" transform="translate(-22 4) scale(.9) translate(6 6)">${char}</g><g opacity=".22" transform="translate(22 4) scale(.9) translate(6 6)">${char}</g>` : "";
+  const shadow = R==="Homme-ombre" ? `<circle cx="60" cy="72" r="46" fill="#120D1C" opacity=".35"/>` : "";
+  const defs=`<defs><radialGradient id="${id}"><stop offset="0" stop-color="${hair}" stop-opacity=".45"/><stop offset="1" stop-color="${hair}" stop-opacity="0"/></radialGradient>${po.eye?`<linearGradient id="RAIN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF3FA0"/><stop offset=".5" stop-color="#FFE03F"/><stop offset="1" stop-color="#3FD0FF"/></linearGradient>`:""}</defs>`;
+  const tint = po.tint ? ` style="filter:saturate(.35) hue-rotate(160deg)"` : "";
+  return `<svg viewBox="0 0 120 140" width="${size}" height="${H}" role="img" aria-label="${esc([R,el,force,magic,power,weapon].filter(Boolean).join(", "))}">${defs}<circle cx="60" cy="70" r="60" fill="url(#${id})"/>${shadow}${fBack}${mBack}${pBack}${clones}<g transform="${tr}" ${po.opacity?`opacity="${po.opacity}"`:""}${tint}>${char}</g>${mFront}${pFront}</svg>`;
+}
+
+/* ---------- Arène ---------- */
+const KNOWN=["race","force","magie","élément","pouvoir spécial","arme"];
+const BEATS={"Feu":["Plante","Glace","Métal"],"Eau":["Feu","Sable","Terre"],"Plante":["Eau","Terre"],"Terre":["Foudre","Poison","Métal"],
+ "Glace":["Vent","Plante"],"Foudre":["Eau","Vent"],"Vent":["Plante","Sable"],"Métal":["Glace","Terre"],"Poison":["Plante","Eau"],
+ "Sable":["Foudre","Feu"],"Ombre":["Lumière"],"Lumière":["Ombre","Néant"],"Néant":["Cosmos"],"Cosmos":["Néant","Ombre","Lumière"]};
+function statsOf(p){
+  const res=n=>{const j=groups.findIndex(g=>g.name.toLowerCase()===n);return j>=0?p.res[j]:null;};
+  const pt=n=>Number(res(n)?.pts)||0;
+  let extra=0; groups.forEach((g,j)=>{if(!KNOWN.includes(g.name.toLowerCase())&&p.res[j]) extra+=Number(p.res[j].pts)||0;});
+  const race=pt("race"),force=pt("force"),mag=pt("magie"),el=pt("élément"),pow=pt("pouvoir spécial"),arm=pt("arme");
+  const hp=Math.round(130+race*3+force*1.2+extra);
+  const tags=new Set(); groups.forEach((g,j)=>{if(p.res[j]) tags.add(p.res[j].label);});
+  return {tags, name:p.name, race:res("race")?.label||"?", weapon:res("arme")?.label||"Poings",
+    element:res("élément")?.label||"", power:res("pouvoir spécial")?.label||"Coup spécial", magic:res("magie")?.label||"magie",
+    maxHp:hp, hp, atk:12+force+arm*0.8+extra/5, mag:6+mag*1.1+el*0.6+extra/5,
+    def:4+race*0.4+arm*0.3+extra/6, spd:10+pow*0.4+el*0.2, spec:0.07+pow/320};
+}
+
+/* ---------- Counters ---------- */
+const COUNTERS=[
+ {x:"Lumière",y:"Vampire",m:1.6,t:"La lumière brûle les vampires"},
+ {x:"Lumière",y:"Homme-ombre",m:1.5,t:"La lumière dissipe l'ombre"},
+ {x:"Lumière",y:"Démon",m:1.4,t:"La lumière purifie les démons"},
+ {x:"Arme divine",y:"Démon",m:1.6,t:"L'arme divine bannit les démons"},
+ {x:"Arme divine",y:"Dieu déchu",m:1.5,t:"Le divin punit le déchu"},
+ {x:"Arme divine",y:"Vampire",m:1.4,t:"L'arme sacrée blesse les vampires"},
+ {x:"Ombre",y:"Ange",m:1.4,t:"L'ombre corrompt les anges"},
+ {x:"Épée maudite",y:"Ange",m:1.6,t:"La malédiction ronge les anges"},
+ {x:"Magie de soin",y:"Vampire",m:1.4,t:"Le soin brûle les morts-vivants"},
+ {x:"Nécromancie",y:"Esprit",m:1.5,t:"Le nécromancien commande aux âmes"},
+ {x:"Foudre",y:"Cyborg",m:1.6,t:"Court-circuit !"},
+ {x:"Marteau géant",y:"Cyborg",m:1.3,t:"Le marteau écrase le métal"},
+ {x:"Glace",y:"Dragonien",m:1.5,t:"Le froid engourdit les dragons"},
+ {x:"Arc",y:"Homme-oiseau",m:1.5,t:"Les flèches abattent les volants"},
+ {x:"Arc",y:"Vol",m:1.5,t:"Les flèches abattent les volants"},
+ {x:"Lance",y:"Vol",m:1.3,t:"La lance atteint ceux qui volent"},
+ {x:"Gravité",y:"Vol",m:1.6,t:"La gravité cloue au sol"},
+ {x:"Feu",y:"Homme-bête",m:1.3,t:"Les bêtes craignent le feu"},
+ {x:"Lecture des pensées",y:"Illusion",m:1.4,t:"Voit à travers les illusions"},
+ {x:"Magie du chaos",y:"Magie des runes",m:1.4,t:"Le chaos brise l'ordre des runes"},
+ {x:"Eau",y:"Homme-poisson",m:0.5,t:"L'homme-poisson absorbe l'eau"},
+ {x:"Poison",y:"Cyborg",m:0.4,t:"Une machine ne craint pas le poison"},
+ {x:"Poison",y:"Esprit",m:0.4,t:"Un esprit ne craint pas le poison"},
+ {x:"Poings",y:"Géant",m:0.7,t:"Trop costaud pour des poings"},
+ {x:"*",y:"Barrières",mode:"mag",m:0.5,t:"La barrière bloque la magie",pierce:["Magie du chaos","Annuler les pouvoirs","Réécrire la réalité"]},
+ {x:"*",y:"Bouclier vivant",mode:"phys",m:0.7,t:"Le bouclier vivant pare le coup",pierce:["Marteau géant","Réécrire la réalité"]}
+];
+const SPECIAL_COUNTERS={
+ "Voir le futur":{t:"+20 % d'esquive contre les coups physiques",by:["Arrêter le temps","Réécrire la réalité"]},
+ "Invisibilité":{t:"+15 % d'esquive",by:["Lecture des pensées","Voir le futur"]},
+ "Super vitesse":{t:"+10 % d'esquive",by:["Arrêter le temps","Magie du temps","Gravité"]},
+ "Annuler les pouvoirs":{t:"les pouvoirs spéciaux ne marchent pas contre lui",by:["Réécrire la réalité"]},
+ "Régénération":{t:"récupère 8 % de PV à chaque manche",by:["Poison","Malédictions","Magie du sang"]},
+ "Immortalité":{t:"revient une fois avec 1 PV après un K.O.",by:["Nécromancie","Faux","Annuler les pouvoirs","Réécrire la réalité"]}
+};
+const has=(f,arr)=>arr.some(x=>f.tags.has(x));
+function blocked(A,D,key){const r=SPECIAL_COUNTERS[key];return D.tags.has(key)&&!has(A,r.by);} // D garde son avantage contre A
+function counterMult(A,D,mode){
+  let m=1; const notes=[];
+  for(const r of COUNTERS){
+    if(r.x!=="*" && !A.tags.has(r.x)) continue;
+    if(!D.tags.has(r.y)) continue;
+    if(r.mode && r.mode!==mode) continue;
+    if(r.pierce && has(A,r.pierce)){ notes.push(`${r.y} traversée`); continue; }
+    m*=r.m; notes.push(r.t);
+  }
+  return {m,notes};
+}
+function matchups(F){
+  const out=[];
+  F.forEach(A=>F.forEach(D=>{
+    if(A===D) return;
+    COUNTERS.forEach(r=>{
+      if(r.x==="*"||!A.tags.has(r.x)||!D.tags.has(r.y)) return;
+      out.push({good:r.m>1,txt:`${A.name} → ${D.name} : ${r.x} ${r.m>1?"contre":"est faible contre"} ${r.y} (×${r.m})`});
+    });
+    Object.entries(SPECIAL_COUNTERS).forEach(([k,v])=>{
+      if(D.tags.has(k) && has(A,v.by)) out.push({good:true,txt:`${A.name} → ${D.name} : ${v.by.filter(x=>A.tags.has(x))[0]} contre ${k}`});
+    });
+  }));
+  return out;
+}
+
+function battle(players, withLog){
+  const F=players.map(statsOf), ev=[]; let round=0;
+  const push=o=>{ if(withLog) ev.push(Object.assign(o,{hp:F.map(f=>f.hp)})); };
+  push({kind:"intro",t:"Les combattants entrent dans l'arène !",cls:"big"});
+  while(F.filter(f=>f.hp>0).length>1 && round<300){
+    round++; push({kind:"round",n:round,t:`— Manche ${round} —`});
+    // régénération
+    F.forEach((f,i)=>{ if(f.hp>0 && f.tags.has("Régénération") && f.hp<f.maxHp){
+      if(f.noRegen){ return; }
+      const h=Math.min(f.maxHp-f.hp,Math.round(f.maxHp*.08)); f.hp+=h; push({kind:"heal",d:i,v:h,t:`${f.name} se régénère : +${h} PV`}); }});
+    const order=F.filter(f=>f.hp>0).map(f=>({f,k:f.spd+Math.random()*8})).sort((a,b)=>b.k-a.k).map(x=>x.f);
+    for(const A of order){
+      if(A.hp<=0) continue;
+      const foes=F.filter(f=>f!==A&&f.hp>0); if(!foes.length) break;
+      const D=foes[Math.floor(Math.random()*foes.length)], a=F.indexOf(A), d=F.indexOf(D);
+      const useMag = A.mag>A.atk ? Math.random()<.65 : Math.random()<.35;
+      let mode=useMag?"mag":"phys";
+      // esquive (+ bonus et counters)
+      let dodge=.06+(D.spd-A.spd)/200, why="";
+      for(const [k,b] of [["Voir le futur",.2],["Invisibilité",.15],["Super vitesse",.1]]){
+        if(!D.tags.has(k)) continue;
+        if(k==="Voir le futur" && mode!=="phys") continue;
+        if(blocked(A,D,k)){ dodge+=b; why=why||k; }
+      }
+      dodge=Math.min(.5,Math.max(.03,dodge));
+      if(Math.random()<dodge){push({kind:"dodge",a,d,t:`${A.name} attaque ${D.name}, mais ${D.name} esquive${why?` (${why})`:""} !`});continue;}
+      let dmg=(useMag?A.mag:A.atk)*(0.85+Math.random()*0.3), crit=false, adv=false, notes=[];
+      let txt = useMag ? `${A.name} lance sa ${A.magic.toLowerCase()} sur ${D.name}` : `${A.name} frappe ${D.name} (${A.weapon.toLowerCase()})`;
+      let cls="";
+      if(Math.random()<A.spec){
+        if(blocked(A,D,"Annuler les pouvoirs")){ notes.push(`${D.name} annule le pouvoir de ${A.name}`); }
+        else { dmg*=2.2; mode="special"; txt=`${A.name} utilise ${A.power.toUpperCase()} contre ${D.name}`; cls="big"; }
+      }
+      if(mode!=="special" && Math.random()<.1){dmg*=1.5; crit=true; txt+=" (coup critique)";}
+      if(A.element && (BEATS[A.element]||[]).includes(D.element)){dmg*=1.3; adv=true; txt+=` · ${A.element} bat ${D.element}`;}
+      const cm=counterMult(A,D,mode==="special"?"special":mode); dmg*=cm.m; notes=notes.concat(cm.notes);
+      dmg=Math.max(2,Math.round(dmg-D.def*0.5));
+      if(has(A,SPECIAL_COUNTERS["Régénération"].by) && D.tags.has("Régénération") && !D.noRegen){ D.noRegen=true; notes.push(`la régénération de ${D.name} est bloquée`); }
+      D.hp=Math.max(0,D.hp-dmg);
+      const counter = cm.m>1 ? "up" : cm.m<1 ? "down" : (notes.length?"info":"");
+      push({kind:"hit",a,d,mode,crit,adv,dmg,counter,notes,t:`${txt} : −${dmg} PV${notes.length?` [${notes.join(" · ")}]`:""}`,cls});
+      if(D.hp<=0){
+        if(D.tags.has("Immortalité") && !D.revived){
+          D.revived=true;
+          if(blocked(A,D,"Immortalité")){ D.hp=1; push({kind:"revive",d,t:`${D.name} est immortel et se relève avec 1 PV !`,cls:"big"}); continue; }
+          push({kind:"info",d,t:`${A.name} contre l'Immortalité de ${D.name} !`,cls:"big"});
+        }
+        push({kind:"ko",d,t:`${D.name} est K.O. !`,cls:"ko"});
+      }
+    }
+  }
+  const alive=F.filter(f=>f.hp>0);
+  const winner = alive.length===1 ? alive[0] : alive.sort((a,b)=>b.hp/b.maxHp-a.hp/a.maxHp)[0];
+  return {F,ev,winner};
+}
+
+/* --- mise en scène --- */
+let playing=false, runId=0, current=null, step=0, speed=1;
+const reduceMotion=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
+const wait=ms=>new Promise(r=>setTimeout(r, reduceMotion()? Math.min(ms,120) : ms/speed));
+function arenaReady(){return players.length>=2 && finished();}
+function updateArena(){
+  const ok=arenaReady();
+  $("fight").disabled=!ok||playing; $("sim").disabled=!ok||playing;
+  $("arenaHint").textContent = ok ? "Les persos s'affrontent tous en même temps, chacun attaque un adversaire au hasard. Le dernier debout gagne. Chaque combat est différent."
+    : (players.length<2 ? "Il faut au moins 2 joueurs." : "Termine toutes les roues de tous les joueurs pour débloquer le combat.");
+  const mu=$("matchups");
+  if(ok){ const list=matchups(players.map(statsOf));
+    mu.innerHTML = `<h2 style="margin:14px 0 6px;font-size:1.05rem">Counters dans ce combat</h2>` + (list.length? list.map(x=>`<p class="${x.good?"mu-up":"mu-down"}">${esc(x.txt)}</p>`).join("") : `<p class="sub" style="margin:0">Aucun counter entre ces persos.</p>`);
+  } else mu.innerHTML="";
+  if(!ok && !playing){ $("stage").hidden=true; $("log").hidden=true; $("winner").className="winner"; $("winrates").innerHTML=""; }
+}
+function layout(F){
+  const st=$("stage"); st.hidden=false; st.innerHTML=`<div class="banner" id="banner"></div><div class="flash" id="flash"></div>`;
+  const n=F.length;
+  F.forEach((f,i)=>{
+    const ang=Math.PI+i*2*Math.PI/n;
+    const x = 50+36*Math.cos(ang), y = n===2 ? 56 : 54+22*Math.sin(ang);
+    const u=document.createElement("div"); u.className="unit"; u.id="u"+i;
+    u.style.left=x+"%"; u.style.top=y+"%"; u.style.zIndex=Math.round(y);
+    u.innerHTML=`<div class="mover"><div class="uname">${esc(f.name)}</div><div class="hpbar"><i></i></div><div class="sprite ${x>50.5?"flip":""}">${avatarSVG(players[i],88)}</div></div>`;
+    st.appendChild(u);
+  });
+}
+function setHP(i,hp,max){const b=document.querySelector(`#u${i} .hpbar i`); if(b){const p=Math.max(0,hp/max*100); b.style.width=p+"%"; b.style.background = p>50?"#3FBF6A":p>25?"#F5B428":"#E8452C";}}
+function center(i){const s=$("stage").getBoundingClientRect(), r=document.querySelector(`#u${i} .sprite`).getBoundingClientRect();return {x:r.left-s.left+r.width/2,y:r.top-s.top+r.height/2};}
+function fx(cls,pos,html,life){const e=document.createElement("div");e.className="fx "+cls;e.style.left=pos.x+"px";e.style.top=pos.y+"px";if(html)e.innerHTML=html;$("stage").appendChild(e);setTimeout(()=>e.remove(),(life||900)/ (reduceMotion()?1:speed));return e;}
+function mover(i){return document.querySelector(`#u${i} .mover`);}
+function logLine(e){const p=document.createElement("p");p.textContent=e.t;if(e.cls)p.className=e.cls;$("log").appendChild(p);$("log").scrollTop=$("log").scrollHeight;}
+function banner(txt,big,col){const b=$("banner");b.textContent=txt;b.style.color=col||"";b.className="banner show"+(big?" big":"");}
+
+async function animate(e){
+  const F=current.F, rm=reduceMotion();
+  if(e.kind==="intro"){ F.forEach((f,i)=>setHP(i,f.maxHp,f.maxHp)); banner("Combat !",true); await wait(900); return; }
+  if(e.kind==="round"){ banner(`Manche ${e.n}`); await wait(450); return; }
+  if(e.kind==="heal"){ setHP(e.d,e.hp[e.d],F[e.d].maxHp); fx("dmg heal",{x:center(e.d).x,y:center(e.d).y-30},`+${e.v}`,900); await wait(450); return; }
+  if(e.kind==="revive"){ $("flash").style.background="#FFD84A"; $("flash").className="flash on"; setHP(e.d,1,F[e.d].maxHp); fx("txt ko gold",center(e.d),"Immortel !",1200); await wait(900); $("flash").className="flash"; return; }
+  if(e.kind==="info"){ fx("txt counter",center(e.d),"Contré !",1000); await wait(600); return; }
+  if(e.kind==="ko"){ document.getElementById("u"+e.d).classList.add("ko"); fx("txt ko",center(e.d),"K.O.",1100); await wait(700); return; }
+  const A=F[e.a], pa=center(e.a), pd=center(e.d), ma=mover(e.a), md=mover(e.d), col=ELCOL[A.element]||"#FF5FA2";
+  const dx=pd.x-pa.x, dy=pd.y-pa.y;
+  if(e.kind==="dodge"){
+    if(!rm) ma.style.transform=`translate(${dx*.55}px,${dy*.55}px)`;
+    await wait(220);
+    if(!rm){ md.style.transform=`translate(${dx>0?28:-28}px,-18px)`; }
+    fx("txt",pd,"Esquive !",900);
+    await wait(320); ma.style.transform=""; md.style.transform=""; await wait(250); return;
+  }
+  // coup
+  if(e.mode==="special"){
+    $("flash").style.background=col; $("flash").className="flash on";
+    banner(A.power,true,col); ma.classList.add("cast"); ma.style.setProperty("--glow",col);
+    await wait(850); $("flash").className="flash";
+  }
+  if(e.mode==="phys"){
+    if(!rm) ma.style.transform=`translate(${dx*.72}px,${dy*.72}px)`;
+    await wait(230);
+    fx("slash"+(e.crit?" crit":""),pd,`<svg viewBox="0 0 60 60" width="70" height="70"><path d="M8 50 Q30 30 52 8" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M12 54 Q34 34 56 12" stroke="${col}" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`,450);
+  } else {
+    ma.classList.add("cast"); ma.style.setProperty("--glow",col);
+    const big=e.mode==="special";
+    const orb=fx("orb"+(big?" big":""),pa,"",900); orb.style.background=`radial-gradient(circle, #fff 0 20%, ${col} 45%, transparent 72%)`;
+    await wait(60);
+    orb.style.transform=`translate(-50%,-50%) translate(${dx}px,${dy}px)`;
+    await wait(360);
+    const b=fx("burst"+(big?" big":""),pd,"",600); b.style.background=`radial-gradient(circle, ${col} 0 35%, transparent 70%)`;
+  }
+  md.classList.remove("hurt"); void md.offsetWidth; md.classList.add("hurt");
+  setHP(e.d,e.hp[e.d],F[e.d].maxHp);
+  fx("dmg"+(e.mode==="special"?" sp":e.crit?" crit":""),{x:pd.x,y:pd.y-30},`−${e.dmg}`,1000);
+  if(e.adv) fx("txt adv",{x:pd.x,y:pd.y+40},"Super efficace",900);
+  if(e.counter==="up") fx("txt counter",{x:pd.x,y:pd.y+58},"Contre !",1000);
+  if(e.counter==="down") fx("txt weak",{x:pd.x,y:pd.y+58},"Résiste !",1000);
+  if(e.counter==="info" && e.notes.length) fx("txt weak",{x:pd.x,y:pd.y+58},"Contré !",1000);
+  await wait(e.mode==="special"?600:380);
+  ma.style.transform=""; ma.classList.remove("cast"); $("banner").className="banner";
+  await wait(220);
+}
+
+async function play(id){
+  while(step<current.ev.length){
+    if(id!==runId) return;
+    const e=current.ev[step++]; logLine(e);
+    await animate(e);
+  }
+  if(id===runId) endFight();
+}
+function endFight(){
+  playing=false; $("skip").disabled=true;
+  const F=current.F, last=current.ev[current.ev.length-1], wi=F.indexOf(current.winner);
+  F.forEach((f,i)=>{setHP(i,last.hp[i],f.maxHp); const u=$("u"+i); if(!u)return; u.classList.toggle("ko",last.hp[i]<=0); if(i===wi) u.classList.add("win"); const m=mover(i); m.style.transform=""; m.classList.remove("cast");});
+  banner(`${current.winner.name} gagne !`,true,cssVar("--gold"));
+  $("winner").innerHTML=`${esc(current.winner.name)} remporte le combat !`; $("winner").className="winner show";
+  updateArena();
+}
+$("fight").addEventListener("click",()=>{
+  if(!arenaReady()||playing) return;
+  if(net.on&&!net.host){net.hostConn.send({t:"fightReq"});return;}
+  hostFight();
+});
+function hostFight(){
+  if(!arenaReady()||playing) return;
+  const cur=battle(players,true);
+  broadcast({t:"fight",ev:cur.ev,F:cur.F.map(f=>Object.assign({},f,{tags:[...f.tags]})),w:cur.F.indexOf(cur.winner)});
+  startFight(cur);
+}
+function startFight(cur){
+  current=cur; step=0; playing=true; runId++;
+  $("log").innerHTML=""; $("log").hidden=false; $("winner").className="winner"; $("winrates").innerHTML="";
+  layout(current.F); $("skip").disabled=false; updateArena();
+  $("stage").scrollIntoView({behavior:reduceMotion()?"auto":"smooth",block:"center"});
+  play(runId);
+}
+$("skip").addEventListener("click",()=>{
+  if(!playing) return; runId++;
+  while(step<current.ev.length) logLine(current.ev[step++]);
+  endFight();
+});
+$("speed").addEventListener("click",()=>{speed = speed===1?2:speed===2?3:1; $("speed").textContent=`Vitesse ×${speed}`; $("stage").style.setProperty("--spd",speed);});
+$("sim").addEventListener("click",()=>{
+  if(!arenaReady()||playing) return;
+  const N=200, wins=players.map(()=>0);
+  for(let k=0;k<N;k++){const r=battle(players,false); wins[r.F.indexOf(r.winner)]++;}
+  const rows=players.map((p,i)=>({name:p.name,w:wins[i]})).sort((a,b)=>b.w-a.w);
+  $("winrates").innerHTML=`<h2 style="margin-top:16px">Sur ${N} combats</h2>`+rows.map((r,i)=>
+    `<div class="wr-row"><span style="font-weight:${i===0?900:400}">${esc(r.name)}</span><div class="bar"><i style="width:${r.w/N*100}%;background:${i===0?cssVar("--gold"):cssVar("--sakura")}"></i></div><span style="text-align:right">${(r.w/N*100).toFixed(0)} %</span></div>`).join("")
+    +`<p class="sub" style="margin-top:8px">${esc(rows[0].name)} est le plus puissant : il gagne ${(rows[0].w/N*100).toFixed(0)} % des combats.</p>`;
+});
+
+/* ---------- Guide des counters ---------- */
+function relations(label){
+  const r={up:[],down:[],res:[],weak:[],sp:null,spBy:[]};
+  COUNTERS.forEach(c=>{
+    const who = c.x==="*" ? (c.mode==="mag"?"la magie":"les coups physiques") : c.x;
+    if(c.x===label){ (c.m>1?r.up:r.weak).push(`${c.y} (×${c.m})`); }
+    if(c.y===label){ (c.m>1?r.down:r.res).push(`${who} (×${c.m})`); }
+    if(c.pierce&&c.pierce.includes(label)) r.up.push(`traverse ${c.y}`);
+  });
+  if(BEATS[label]) BEATS[label].forEach(e=>r.up.push(`${e} (×1.3)`));
+  Object.entries(BEATS).forEach(([k,v])=>{ if(v.includes(label)) r.down.push(`${k} (×1.3)`); });
+  Object.entries(SPECIAL_COUNTERS).forEach(([k,v])=>{
+    if(v.by.includes(label)) r.up.push(`annule ${k}`);
+    if(k===label){ r.sp=v.t; r.spBy=v.by; }
+  });
+  return r;
+}
+function relEmpty(r){return !r.up.length&&!r.down.length&&!r.res.length&&!r.weak.length&&!r.sp;}
+let guideTab=0;
+function renderGuide(){
+  const tabs=groups.map((g,j)=>({g,j,items:g.options.filter(o=>o.label&&!relEmpty(relations(o.label)))})).filter(t=>t.items.length);
+  if(!tabs.length){$("tabs").innerHTML="";$("guideList").innerHTML=`<p class="sub">Aucun counter pour ces groupes.</p>`;return;}
+  if(!tabs.find(t=>t.j===guideTab)) guideTab=tabs[0].j;
+  $("tabs").innerHTML=tabs.map(t=>`<button role="tab" aria-selected="${t.j===guideTab}" data-tab="${t.j}">${esc(t.g.name)}</button>`).join("");
+  const t=tabs.find(t=>t.j===guideTab);
+  const rest=t.g.options.filter(o=>o.label&&relEmpty(relations(o.label))).map(o=>o.label);
+  $("guideList").innerHTML=t.items.map(o=>{const r=relations(o.label);
+    return `<div class="gitem"><h3>${esc(o.label)}</h3>
+      ${r.up.length?`<p><span class="lab l-up">Fort contre :</span> ${esc(r.up.join(", "))}</p>`:""}
+      ${r.down.length?`<p><span class="lab l-down">Faible contre :</span> ${esc(r.down.join(", "))}</p>`:""}
+      ${r.res.length?`<p><span class="lab l-res">Résiste à :</span> ${esc(r.res.join(", "))}</p>`:""}
+      ${r.weak.length?`<p><span class="lab l-res">Peu efficace contre :</span> ${esc(r.weak.join(", "))}</p>`:""}
+      ${r.sp?`<p><span class="lab l-sp">Effet :</span> ${esc(r.sp)} · <span class="lab l-down">contré par</span> ${esc(r.spBy.join(", "))}</p>`:""}
+    </div>`;}).join("")+(rest.length?`<p class="sub" style="margin-top:8px">Sans counter : ${esc(rest.join(", "))}</p>`:"");
+}
+$("tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-tab]");if(!b)return;guideTab=+b.dataset.tab;renderGuide();});
+function miniCounters(p){
+  const up=new Set(), down=new Set();
+  groups.forEach((g,j)=>{ const v=p.res[j]; if(!v) return; const r=relations(v.label);
+    r.up.forEach(x=>up.add(x.replace(/ \(×[\d.]+\)/,""))); r.down.forEach(x=>down.add(x.replace(/ \(×[\d.]+\)/,""))); r.spBy.forEach(x=>down.add(x)); });
+  if(!up.size&&!down.size) return "";
+  return `<div class="cmini">${up.size?`<p><span class="lab l-up">Fort contre :</span> ${esc([...up].join(", "))}</p>`:""}${down.size?`<p><span class="lab l-down">Faible contre :</span> ${esc([...down].join(", "))}</p>`:""}</div>`;
+}
+
+/* ---------- En ligne : salle ---------- */
+const ROOM="roues-perso-";
+function netStatus(t){$("netStatus").textContent=t;}
+function roomStatus(){
+  if(!net.host) return;
+  const n=net.conns.length;
+  netStatus(n?`${n+1} joueurs connectés`:"En attente d'un ami… envoie-lui le lien.");
+}
+function showRoom(code){
+  $("netStart").hidden=true; $("netRoom").hidden=false;
+  $("netRoomCode").textContent=code;
+  $("netLink").value=location.origin+location.pathname+"?salle="+code;
+}
+function peerError(e){
+  netStatus(e.type==="peer-unavailable"?"Salle introuvable : vérifie le code, et que l'hôte a bien la page ouverte."
+    :e.type==="unavailable-id"?"Ce code est déjà pris, recharge la page pour réessayer."
+    :"Erreur de connexion ("+e.type+").");
+}
+function setName(i,name){
+  if(!players[i]) return;
+  players[i].name=String(name||"").slice(0,20)||`Joueur ${i+1}`;
+  const inp=$("pn"+i); if(inp&&document.activeElement!==inp) inp.value=players[i].name;
+  render();
+}
+function createRoom(){
+  if(!window.Peer){alert("Le mode en ligne n'a pas pu se charger. Vérifie ta connexion.");return;}
+  const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const code=Array.from({length:5},()=>A[Math.floor(Math.random()*A.length)]).join("");
+  showRoom(code); netStatus("Ouverture de la salle…");
+  net.peer=new Peer(ROOM+code);
+  net.peer.on("open",()=>{net.on=true;net.host=true;net.seat=0;sync();});
+  net.peer.on("error",peerError);
+  net.peer.on("connection",conn=>{
+    const c={conn,seat:-1};
+    conn.on("open",()=>whenIdle(()=>{
+      let seat=1; while(net.conns.some(x=>x.seat===seat)) seat++;
+      if(seat>7){conn.send({t:"full"});return;}
+      c.seat=seat; net.conns.push(c);
+      if(seat>=players.length){$("nb").value=seat+1;buildPlayers();} else sync();
+    }));
+    conn.on("data",m=>hostMsg(c,m));
+    conn.on("close",()=>whenIdle(()=>{net.conns=net.conns.filter(x=>x!==c);sync();}));
+  });
+}
+function hostMsg(c,m){
+  if(!m||c.seat<0) return;
+  if(m.t==="spinReq"){ if(!spinning&&!finished()&&c.seat===pIdx&&tot(groups[gIdx])>0) hostSpin(); }
+  else if(m.t==="fightReq") hostFight();
+  else if(m.t==="name"){ setName(c.seat,m.name); if(players[c.seat]) broadcast({t:"name",i:c.seat,name:players[c.seat].name}); }
+}
+function joinRoom(code){
+  code=String(code||"").trim().toUpperCase(); if(!code) return;
+  if(!window.Peer){alert("Le mode en ligne n'a pas pu se charger. Vérifie ta connexion.");return;}
+  showRoom(code); netStatus("Connexion à la salle…");
+  net.peer=new Peer();
+  net.peer.on("error",peerError);
+  net.peer.on("open",()=>{
+    const conn=net.peer.connect(ROOM+code,{reliable:true});
+    net.hostConn=conn;
+    conn.on("open",()=>{net.on=true;net.host=false;net.seat=-1;document.body.classList.add("guest");
+      $("nb").disabled=true;$("reset").disabled=true;netStatus("Connecté, en attente de l'hôte…");renderNames();render();});
+    conn.on("data",guestMsg);
+    conn.on("close",()=>netStatus("Connexion à l'hôte perdue. Recharge la page pour rejoindre à nouveau."));
+  });
+}
+function guestMsg(m){
+  if(!m) return;
+  if(m.t==="state") whenIdle(()=>{
+    groups=m.groups; players=m.players.map(p=>({name:p.name,res:p.res||{}}));
+    net.seat=m.you; net.taken=m.taken; $("nb").value=players.length;
+    if(players.every(p=>!Object.keys(p.res).length)){$("reveal").className="reveal";$("hub").textContent="Tourne !";}
+    renderNames(); locate(); draw(); render(); renderGuide();
+    netStatus(players[net.seat]?`Connecté : tu joues ${players[net.seat].name}.`:"Connecté en spectateur.");
+  });
+  else if(m.t==="name") setName(m.i,m.name);
+  else if(m.t==="spin") whenIdle(()=>{pIdx=m.p;gIdx=m.g;draw();startSpin(m.oi,m.target);});
+  else if(m.t==="fight"){ const F=m.F.map(f=>Object.assign({},f,{tags:new Set(f.tags)})); startFight({F,ev:m.ev,winner:F[m.w]}); }
+  else if(m.t==="full") netStatus("La salle est pleine (8 joueurs).");
+}
+$("netCreate").addEventListener("click",createRoom);
+$("netJoin").addEventListener("click",()=>joinRoom($("netCode").value));
+$("netCode").addEventListener("keydown",e=>{if(e.key==="Enter")joinRoom($("netCode").value);});
+$("netCopy").addEventListener("click",()=>{
+  const l=$("netLink"); l.select();
+  (navigator.clipboard?navigator.clipboard.writeText(l.value):Promise.reject()).catch(()=>document.execCommand("copy"));
+  $("netCopy").textContent="Copié !"; setTimeout(()=>$("netCopy").textContent="Copier le lien",1500);
+});
+
+const mq=matchMedia("(prefers-color-scheme: dark)");
+mq.addEventListener&&mq.addEventListener("change",()=>{draw();render();});
+document.fonts&&document.fonts.ready.then(draw);
+renderEditor();buildPlayers();draw();updateArena();renderGuide();
+{const q=new URLSearchParams(location.search).get("salle"); if(q) joinRoom(q);}
+</script>
+</body>
+</html>
