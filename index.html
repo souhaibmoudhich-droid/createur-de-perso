@@ -200,6 +200,19 @@ summary{cursor:pointer;font-weight:900}
 #mapInfo h3{font-family:"Dela Gothic One",sans-serif;font-weight:400;font-size:1.3rem;margin:0 0 8px}
 #mapInfo p{margin:6px 0;font-size:.95rem}
 #mapInfo ul{margin:2px 0 8px;padding-left:18px;font-size:.95rem}
+.cmap-grid{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
+@media (min-width:760px){.cmap-grid{grid-template-columns:minmax(0,520px) 1fr}.cmap-grid #cmapInfo{order:2}}
+#cmapInfo{position:sticky;top:8px;z-index:5;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px;max-height:46vh;overflow-y:auto}
+@media (min-width:760px){#cmapInfo{max-height:86vh}}
+#cmapInfo h3{font-family:"Dela Gothic One",sans-serif;font-weight:400;font-size:1.2rem;margin:0 0 6px}
+#cmapInfo p{margin:5px 0;font-size:.92rem}
+#cmapInfo ul{margin:2px 0 6px;padding-left:18px;font-size:.9rem}
+#cmapSvg{width:100%;max-width:520px;display:block;margin:0 auto}
+#cmapSvg g[data-c]{cursor:pointer}
+#cmapSvg g[data-c]:focus-visible rect{stroke:var(--sakura);stroke-width:4}
+#cmapSvg text{font:900 12px "Zen Kaku Gothic New",sans-serif;fill:#fff;stroke:#1B1035;stroke-width:3px;paint-order:stroke;text-anchor:middle;pointer-events:none}
+#cmapSvg text.head{fill:var(--muted);stroke:none;font-size:13px}
+.cat{display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 4px 0 10px;vertical-align:baseline}
 .key{display:inline-block;width:22px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px}
 .stats{font-family:"Zen Kaku Gothic New",sans-serif;font-size:.9rem;line-height:1.4;margin:10px auto 0;max-width:540px;text-align:left}
 .st-row{display:grid;grid-template-columns:1fr 64px 44px 84px;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);align-items:baseline}
@@ -298,6 +311,16 @@ body.guest #editor{display:none}
     <div class="elmap-grid">
       <div id="mapSvg"></div>
       <div id="mapInfo" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="box elmap" id="cmap">
+    <h2>Carte des counters</h2>
+    <p class="sub" style="margin:0 0 6px">Les autres avantages : races, armes, magies et pouvoirs. Une flèche va de ce qui gagne (à gauche) vers ce qui perd (à droite). Touche une étiquette pour voir ses flèches et pourquoi.</p>
+    <p class="sub" id="cmapLegend" style="margin:0 0 12px"></p>
+    <div class="cmap-grid">
+      <div id="cmapInfo" aria-live="polite"></div>
+      <div id="cmapSvg"></div>
     </div>
   </section>
 
@@ -450,7 +473,7 @@ function render(){
     $("spin").textContent="Terminé";$("spin").disabled=true;
   }
   if(typeof updateArena==="function") updateArena();
-  renderMap();
+  renderMap(); renderCMap();
   $("cards").innerHTML=players.map((p,i)=>{
     const pts=points(p), done=groups.every((_,j)=>p.res[j]);
     const r=rank(pts);
@@ -1353,6 +1376,64 @@ function renderMap(){
 function mapPick(e){const g=e.target.closest("g[data-el]"); if(!g) return; mapSel=g.dataset.el; renderMap(); const f=$("mapSvg").querySelector('g[aria-pressed="true"]'); if(f&&e.type==="keydown") f.focus();}
 $("mapSvg").addEventListener("click",mapPick);
 $("mapSvg").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();mapPick(e);}});
+
+/* ---------- Carte des counters (races, armes, magies, pouvoirs) ---------- */
+let cmSel=null;
+function counterEdges(){ // toujours du gagnant vers le perdant
+  const E=[];
+  COUNTERS.forEach(r=>{
+    if(r.x==="*"){
+      E.push({w:r.y,l:r.mode==="mag"?"La magie":"Les coups physiques",why:`${r.t} (×${r.m})`});
+      (r.pierce||[]).forEach(p=>E.push({w:p,l:r.y,why:`traverse ${r.y}`}));
+    }
+    else if(r.m>1) E.push({w:r.x,l:r.y,why:`${r.t} (×${r.m})`});
+    else E.push({w:r.y,l:r.x,why:`${r.t} (×${r.m})`});
+  });
+  Object.entries(SPECIAL_COUNTERS).forEach(([k,v])=>v.by.forEach(b=>E.push({w:b,l:k,why:`lui retire son avantage (${v.t})`})));
+  return E;
+}
+function catCol(label){const j=groups.findIndex(g=>g.options.some(o=>o.label===label)); return j<0?"#6E7B8C":PALETTE[(j*2)%PALETTE.length];}
+function renderCMap(){
+  const E=counterEdges(), L=[], R=[];
+  E.forEach(e=>{ if(!L.includes(e.w)) L.push(e.w); if(!R.includes(e.l)) R.push(e.l); });
+  const avg=l=>{const a=E.filter(e=>e.l===l).map(e=>L.indexOf(e.w)); return a.reduce((s,x)=>s+x,0)/a.length;};
+  R.sort((a,b)=>avg(a)-avg(b));
+  const own={}; players.forEach(p=>Object.values(p.res).forEach(r=>{(own[r.label]=own[r.label]||[]).push(p.name);}));
+  const all=new Set(L.concat(R));
+  if(!cmSel||!all.has(cmSel)) cmSel=Object.keys(own).find(k=>all.has(k))||L[0];
+  const RH=30, W=520, PW=176, PH=22, H=Math.max(L.length,R.length)*RH+34;
+  const y=(i,n)=>34+(i+.5)*((H-34)/n);
+  const GREEN="#2E9E57", RED="#D93A2B";
+  let faint="", strong="";
+  E.forEach(e=>{
+    const y1=y(L.indexOf(e.w),L.length), y2=y(R.indexOf(e.l),R.length), on=e.w===cmSel?"g":e.l===cmSel?"r":"";
+    const line=`<line x1="${PW+8}" y1="${y1.toFixed(1)}" x2="${W-PW-16}" y2="${y2.toFixed(1)}" `;
+    if(on) strong+=line+`stroke="${on==="g"?GREEN:RED}" stroke-width="4" stroke-linecap="round" marker-end="url(#ck-${on})"/>`;
+    else faint+=line+`stroke="var(--muted)" stroke-width="1.2" opacity=".28" marker-end="url(#ck-n)"/>`;
+  });
+  const near=new Set([cmSel]); E.forEach(e=>{ if(e.w===cmSel) near.add("R:"+e.l); if(e.l===cmSel) near.add("L:"+e.w); });
+  const pill=(label,side,i,n)=>{
+    const x=side==="L"?4:W-PW-4, cy=y(i,n), sel=label===cmSel, dim=!sel&&!near.has(side+":"+label);
+    return `<g data-c="${esc(label)}" role="button" tabindex="0" aria-label="${esc(label)}" aria-pressed="${sel}" opacity="${dim?.6:1}">`
+      +`<rect x="${x}" y="${(cy-PH/2).toFixed(1)}" width="${PW}" height="${PH}" rx="11" fill="${catCol(label)}" stroke="${sel?"var(--ink)":own[label]?"var(--gold)":"rgba(255,255,255,.6)"}" stroke-width="${sel?4:own[label]?3:1.5}"${own[label]&&!sel?` stroke-dasharray="4 3"`:""}/>`
+      +`<text x="${x+PW/2}" y="${(cy+4).toFixed(1)}">${esc(label)}</text></g>`;
+  };
+  const mk=(id,col,op)=>`<marker id="ck-${id}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="${id==="n"?7:4.5}" markerHeight="${id==="n"?7:4.5}" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${col}"${op?` opacity="${op}"`:""}/></marker>`;
+  $("cmapSvg").innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="Carte des counters"><defs>${mk("n","var(--muted)",.5)}${mk("g",GREEN)}${mk("r",RED)}</defs>`
+    +`<text class="head" x="${4+PW/2}" y="18">Gagne</text><text class="head" x="${W-PW/2-4}" y="18">Perd</text>`
+    +faint+strong+L.map((l,i)=>pill(l,"L",i,L.length)).join("")+R.map((l,i)=>pill(l,"R",i,R.length)).join("")+`</svg>`;
+  const wins=E.filter(e=>e.w===cmSel), loses=E.filter(e=>e.l===cmSel);
+  const li=(name,why)=>`<li><b>${esc(name)}</b> : ${esc(why)}</li>`;
+  $("cmapInfo").innerHTML=`<h3>${esc(cmSel)}</h3>`
+    +`<p><span class="key" style="background:${GREEN}"></span><span class="lab l-up">Bat :</span>${wins.length?"":" rien de particulier"}</p>${wins.length?`<ul>${wins.map(e=>li(e.l,e.why)).join("")}</ul>`:""}`
+    +`<p><span class="key" style="background:${RED}"></span><span class="lab l-down">Se fait battre par :</span>${loses.length?"":" rien de particulier"}</p>${loses.length?`<ul>${loses.map(e=>li(e.w,e.why)).join("")}</ul>`:""}`
+    +(own[cmSel]?`<p><span class="lab">Perso${own[cmSel].length>1?"s":""} concerné${own[cmSel].length>1?"s":""} :</span> ${esc(own[cmSel].join(", "))}</p>`:"");
+  $("cmapLegend").innerHTML="Couleurs :"+groups.filter(g=>g.options.some(o=>all.has(o.label))).map(g=>`<span class="cat" style="background:${catCol(g.options.find(o=>all.has(o.label)).label)}"></span>${esc(g.name)}`).join("")
+    +(Object.keys(own).some(k=>all.has(k))?" · contour doré en pointillés : ce que possèdent les joueurs":"");
+}
+function cmapPick(e){const g=e.target.closest("g[data-c]"); if(!g) return; cmSel=g.dataset.c; renderCMap(); const f=$("cmapSvg").querySelector('g[aria-pressed="true"]'); if(f&&e.type==="keydown") f.focus();}
+$("cmapSvg").addEventListener("click",cmapPick);
+$("cmapSvg").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();cmapPick(e);}});
 
 function relEmpty(r){return !r.up.length&&!r.down.length&&!r.res.length&&!r.weak.length&&!r.sp;}
 let guideTab=0;
